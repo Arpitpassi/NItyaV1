@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NITYA - Deploy to Arweave</title>
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="logo">AW</div>
+    <button class="theme-toggle" id="themeToggle">TOGGLE THEME</button>
+    <div class="image-box"></div>
+    <div class="meta-title" id="metaTitle">
+      <div>NITYA</div> 
+      <div class="subtitle" id="subtitle">
+       
+        </div>
+    </div>
+    <div class="subtitle" id="subtitle">
+      DEPLOY TO<br>ARWEAVE
+    </div>
+    <canvas id="particleCanvas"></canvas>
+    <div class="build-progress" id="buildProgress"></div>
+    <div class="wallet-buttons">
+      <div class="step-label">Step 1</div>
+      <button class="wallet-btn" id="connectWalletBtn" onclick="initializeAndConnectWallet()">CONNECT WALLET</button>
+      <button class="wallet-btn" id="disconnectWallet" style="display: none;" onclick="disconnectWallet()">DISCONNECT WALLET</button>
+      <div class="wallet-status-text" id="walletConnectedText" style="display: none;">Wallet Connected</div>
+    </div>
+    <div class="generate-btn">
+      <div class="step-label">Step 2</div>
+      <button class="wallet-btn" id="generateCommandBtn" onclick="showConfigForm()">GENERATE COMMAND</button>
+    </div>
+    <div class="configuration-form" id="configForm">
+      <button class="close-btn" onclick="closeWindow('configForm')">×</button>
+      <h2>Configure Project</h2>
+      <div class="form-step active" id="step1">
+        <input type="text" id="projectName" placeholder="Project name (optional)">
+        <input type="text" id="branch" placeholder="Branch to deploy (e.g., main)">
+        <input type="text" id="installCommand" placeholder="Install command (e.g., npm install)">
+        <input type="text" id="buildCommand" placeholder="Build command (e.g., npm run build)">
+        <button class="wallet-btn" onclick="nextStep(0)">Next</button>
+      </div>
+      <div class="form-step" id="step2">
+        <input type="text" id="deployFolder" placeholder="Deploy folder (e.g., dist)">
+        <label for="sigType">Wallet Type:</label>
+        <select id="sigType">
+          <option value="arweave">Arweave(More soon;D)</option>
+        </select>
+        <div class="checkbox-container">
+          <input type="checkbox" id="autoDeploy" checked>
+          <label for="autoDeploy">Set up automatic deployment on commit</label>
+        </div>
+        <button class="wallet-btn" onclick="goBack(1)">Back</button>
+        <button class="wallet-btn" onclick="nextStep(1)">Next</button>
+      </div>
+      <div class="form-step" id="step3">
+        
+     <label for="arnsNames">Select ANT Process:</label>
+        <select id="arnsNames">
+          <option value="">Select an ANT Process</option>
+          <!-- Will be populated with ANT processes when connected to wallet -->
+        </select>
+        
+        <label for="arnsName">ARNS Name (optional):</label>
+        <input type="text" id="arnsName" placeholder="ARNS name (e.g., myapp)">
+        
+        <label for="undername">Undername (optional):</label>
+        <input type="text" id="undername" placeholder="ARNS undername (e.g., dev)">
+        
+        <button class="generate-btn-large" onclick="generateAndShowInitCommand()">Generate</button>
+        <button class="wallet-btn" onclick="goBack(2)">Back</button>
+      </div>
+    </div>
+    
+    <!-- Initialization Command Output -->
+    <div class="command-output" id="initCommandOutputDiv">
+      <button class="close-btn" onclick="closeWindow('initCommandOutputDiv')">×</button>
+      <h2>Initialization Command</h2>
+      <pre id="initCommandOutput"></pre>
+      <button class="wallet-btn" onclick="copyInitCommand()">Copy Command</button>
+      <pre id="seedOutput"></pre>
+      
+      <!-- Wallet Operations Section -->
+      <div class="wallet-operations-section">
+        <h3>Wallet Operations</h3>
+        <input type="text" id="projectWalletInput" placeholder="Paste project wallet address">
+        <button class="wallet-btn" onclick="usePastedWallet()">Set Project Wallet</button>
+        <p id="projectWalletDisplay"></p>
+        <button class="wallet-btn" id="topUpButton" onclick="topUpWallet()" disabled>Top Up Project Wallet (0.1 AR)</button>
+        <button class="wallet-btn" id="grantButton" onclick="grantControllerAccess()" disabled>Grant Controller Access</button>
+      </div>
+      <button class="wallet-btn" onclick="closeWindow('initCommandOutputDiv')">Back</button>
+    </div>
+    
+    <!-- Deploy Command Output -->
+    <div class="command-output" id="deployCommandOutputDiv">
+      <button class="close-btn" onclick="closeWindow('deployCommandOutputDiv')">×</button>
+      <h2>Deploy Command</h2>
+      <pre id="deployCommandOutput"></pre>
+      <button class="wallet-btn" onclick="copyDeployCommand()">Copy Command</button>
+      <div id="walletInfo">
+        <h3>Deployment Information</h3>
+        <p>Execute the command above to deploy your project</p>
+      </div>
+      <button class="wallet-btn" onclick="goBackToInitCommand()">Back to Initialization</button>
+      <button class="wallet-btn" onclick="closeWindow('deployCommandOutputDiv')">Close</button>
+      
+    </div>
+    
+    <p class="status-message" id="walletStatus"></p>
+    <p class="status-message" id="status"></p>
+    <div class="debug-panel" id="debugPanel"></div>
+    
+    <!-- Need Help? Setup Guide Button -->
+    <div class="help-button">
+      <button class="wallet-btn" onclick="showHelpSection()">GET STARTED?</button>
+        █╗
+    </div>
+
+
+    <!-- Need Help? Setup Guide Section -->
+    <div class="help-section" id="helpSection">
+      <button class="close-btn" onclick="closeWindow('helpSection')">×</button>
+      <h2>Need Help? Setup Guide</h2>
+      
+      <div class="setup-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Connect Your Wallet</h3>
+          <p>Connect your Arweave wallet (e.g., Wander) or Ethereum/Polygon wallet to get started.</p>
+          <div class="terminal-container">
+            <div class="terminal-header">
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-title">wallet connection</div>
+            </div>
+            <div class="terminal-body">
+              <span class="terminal-prompt">$</span> Click "CONNECT WALLET" and approve in your wallet
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="setup-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Configure Your Project</h3>
+          <p>Fill out the project details including build commands, branch, and deploy folder.</p>
+          <div class="terminal-container">
+            <div class="terminal-header">
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-title">project config</div>
+            </div>
+            <div class="terminal-body">
+              <span class="terminal-prompt">$</span> Click "GENERATE COMMAND" to configure your project
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="setup-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Initialize Your Project</h3>
+          <p>Run the initialization command in your project directory to set up deployment configs.</p>
+          <div class="terminal-container">
+            <div class="terminal-header">
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-title">initialize</div>
+            </div>
+            <div class="terminal-body">
+              <span class="terminal-prompt">$</span> npm install perma-deployV1
+<span class="terminal-prompt">$</span> npx perma-deploy-init --project-name "my-project" ...
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="setup-step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Grant controller access and fund Your Project Wallet</h3>
+          <p>Ensure your project wallet has at least 0.1 AR for larger than 100kb deployments.</p>
+          <div class="terminal-container">
+            <div class="terminal-header">
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-title">fund wallet</div>
+            </div>
+            <div class="terminal-body">
+              <span class="terminal-prompt">$</span> Use "Top Up Project Wallet" to fund with 0.1 AR
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="setup-step">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <h3>Deploy Your Project</h3>
+          <p>Run the deploy command to build and upload your project to Arweave.</p>
+          <div class="terminal-container">
+            <div class="terminal-header">
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-button"></div>
+              <div class="terminal-title">deploy</div>
+            </div>
+            <div class="terminal-body">
+              <span class="terminal-prompt">$</span> npm run build-and-deploy
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <button class="wallet-btn" onclick="closeWindow('helpSection')">Close Guide</button>
+    </div>
+  </div>
+  
+
+  <script src="https://unpkg.com/arweave@1.15.7/bundles/web.bundle.min.js"></script>
+  <script src="dist/ar-io-bundle.js"></script>
+  <script type="module">
+    import * as aoconnect from 'https://unpkg.com/@permaweb/aoconnect@0.0.79/dist/index.js';
+    window.aoconnect = aoconnect; // Make it available globally
+  </script>
+  <script src="src/index.js"></script>
+  <script src="src/indexx.js"></script>
+
+</body>
+</html>
