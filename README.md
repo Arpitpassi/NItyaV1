@@ -1,6 +1,6 @@
-# Anantweb - Deploy to Arweave
+# Nitya - Deploy to Arweave
 
-A web-based tool to simplify deploying projects to the Arweave permaweb. This application provides an intuitive interface for configuring projects, generating deployment commands, and managing Arweave wallets and ARNS (Arweave Name System) processes.
+A web-based tool to simplify deploying projects to the Arweave permaweb. This application provides an intuitive interface for configuring projects, generating deployment commands, and managing Arweave wallets and ARNS (Arweave Name System) processes. We bring back the control of deployments of your projects back to you in your own hands.
 
 ## Features
 
@@ -14,7 +14,7 @@ A web-based tool to simplify deploying projects to the Arweave permaweb. This ap
 
 ## Prerequisites
 
-Before using ANANTWEB, ensure you have:
+Before using Nitya, ensure you have:
 
 - A modern web browser (Chrome, Firefox, etc.).
 - An Arweave wallet (e.g., Wander) or an Ethereum/Polygon wallet (e.g., MetaMask, though compatibility is limited to specific operations).
@@ -27,14 +27,14 @@ Before using ANANTWEB, ensure you have:
 ### 1. Access the Application
 
 **Option A: Hosted Version**
-Visit the hosted version at [Insert hosted URL here, e.g., https://anantweb.arweave.app] (if applicable).
+Visit the hosted version at [Insert hosted URL here, e.g., https://nitya_enginesoup.ar.io
 
 **Option B: Run Locally**
 Clone the repository and serve the application locally:
 
 ```bash
-git clone https://github.com/[your-username]/anantweb.git
-cd anantweb
+git clone https://github.com/Arpitpassi/Nitya(formerly anantweb).git
+cd Nitya
 npm install
 npm start
 ```
@@ -69,8 +69,8 @@ Open http://localhost:3000 in your browser (assumes you have a basic Node.js ser
 1. Copy the Initialization Command from the output. Example:
 
 ```bash
-npm install perma-deployV1
-npx perma-deploy-init --project-name "my-project" --build "npm run build" --branch "main" --deploy-folder "dist" --auto-deploy --seed "your-base64-seed"
+npm install nitya@0.0.11
+npx perma-deploy-init --project-name "my-project" --build "npm run build" --branch "main" --deploy-folder "dist" --auto-deploy 
 ```
 
 2. Run the command in your project's root directory.
@@ -91,7 +91,7 @@ npx perma-deploy-init --project-name "my-project" --build "npm run build" --bran
 1. Copy the Deploy Command from the output. Example:
 
 ```bash
-npm run build-and-deploy
+npm run perma-deploy-deploy
 ```
 
 2. Run the command in your project directory.
@@ -105,10 +105,10 @@ npm run build-and-deploy
 
 ### 6. Automatic Deployment (Optional)
 
-If you enabled Auto-Deploy, every git commit on the specified branch will trigger:
+If you enabled Auto-Deploy, every git commit on the specified branch wilnitya@0.0.11l trigger:
 
 ```bash
-npm run build-and-deploy
+npm run perma-deploy-deploy
 ```
 
 Ensure your project wallet is funded to avoid failed deployments.
@@ -139,7 +139,7 @@ set DEPLOY_KEY=your_private_key_here     # Windows
 ## Project Structure
 
 ```
-anantweb/
+Nitya/
 ├── dist/                    # Bundled JS dependencies
 ├── src/
 │   ├── index.js             # Main logic (wallet, commands, UI)
@@ -187,7 +187,7 @@ Please include tests and update documentation as needed.
 
 ## License
 
-This project is licensed under the [License type to be added].
+This project is licensed under the GNU Affero General Public License v3.0
 
 ## Acknowledgements
 
