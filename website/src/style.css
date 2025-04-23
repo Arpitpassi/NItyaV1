@@ -1,0 +1,763 @@
+
+    :root {
+      --neon-pink: #ff9ee9;
+      --neon-blue: #90e0ff;
+      --neon-green: #a2ffcc;
+      --neon-purple: #c39cff;
+      --deep-space: #0f0524;
+      --terminal-bg: #000;
+      --terminal-border: #fff;
+      
+      /* Light mode colors */
+      --light-bg: #f5f5f7;
+      --light-text: #222;
+      --light-accent: #6b4de6;
+      --light-border: #444;
+      --light-button-bg: #fff;
+      --light-button-border: #222;
+    }
+    
+    body {
+      font-family: 'Courier New', monospace;
+      background-color: var(--terminal-bg);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    
+    body.light-mode {
+      background-color: var(--light-bg);
+      color: var(--light-text);
+    }
+    
+    .container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .logo {
+      position: absolute;
+      top: 20px;
+      left: 40px;
+      font-size: 48px;
+      font-weight: bold;
+      z-index: 10;
+      color: #fff;
+      transition: filter 0.3s ease, color 0.3s ease;
+    }
+    
+    .light-mode .logo {
+      color: var(--light-text);
+    }
+    
+    .image-box {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 50vw;
+      aspect-ratio: 16 / 9;
+      background: url('https://images.pexels.com/photos/674010/pexels-photo-674010.jpeg?auto=compress&cs=tinysrgb&w=600') center/cover no-repeat;
+      background-color: #222; /* Fallback if image fails */
+      z-index: 1;
+      transition: filter 0.3s ease;
+    }
+    
+    .meta-title {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 8vw;
+      text-transform: uppercase;
+      letter-spacing: 10px;
+      text-align: center;
+      width: 100%;
+      line-height: 1.2;
+      z-index: 2;
+      color: #fff;
+      transition: filter 0.3s ease, color 0.3s ease;
+    }
+    
+    .subtitle {
+      position: absolute;
+      right: 40px;
+      text-align: right;
+      font-size: 24px;
+      line-height: 1.2;
+      top: 70%;
+      z-index: 2;
+      color: #fff;
+      transition: filter 0.3s ease, color 0.3s ease;
+    }
+    
+    .light-mode .subtitle {
+      color: var(--light-text);
+    }
+    
+    .wallet-buttons {
+      position: absolute;
+      bottom: 40px;
+      left: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10;
+      transition: filter 0.3s ease;
+    }
+    
+    .step-label {
+      font-size: 16px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      color: var(--neon-pink);
+      position: relative;
+      transition: color 0.3s ease;
+    }
+    
+    .light-mode .step-label {
+      color: var(--light-accent);
+    }
+    
+    .step-label::after {
+      content: '';
+      display: block;
+      width: 100px;
+      height: 2px;
+      background: linear-gradient(to right, var(--neon-pink) 50%, transparent 50%);
+      background-size: 10px 2px;
+      background-repeat: repeat-x;
+      margin-top: 5px;
+      transition: background 0.3s ease;
+    }
+    
+    .light-mode .step-label::after {
+      background: linear-gradient(to right, var(--light-accent) 50%, transparent 50%);
+      background-size: 10px 2px;
+      background-repeat: repeat-x;
+    }
+    
+    .generate-btn {
+      position: absolute;
+      bottom: 40px;
+      right: 40px;
+      z-index: 10;
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      transition: filter 0.3s ease;
+      flex-direction: column;
+    }
+    
+    .generate-btn .step-label {
+      align-self: flex-start;
+    }
+    
+    .wallet-btn {
+      background-color: var(--terminal-bg);
+      color: #fff;
+      border: 2px solid var(--terminal-border);
+      padding: 12px 15px;
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      font-size: 14px;
+      text-transform: uppercase;
+      border-radius: 0;
+      min-width: 150px;
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .light-mode .wallet-btn {
+      background-color: var(--light-button-bg);
+      color: var(--light-text);
+      border: 2px solid var(--light-button-border);
+    }
+    
+    .wallet-btn:hover {
+      background-color: var(--neon-pink);
+      color: #000;
+    }
+    
+    .light-mode .wallet-btn:hover {
+      background-color: var(--light-accent);
+      color: #fff;
+    }
+    
+    .generate-btn-large {
+      background-color: var(--terminal-bg);
+      color: #fff;
+      border: 2px solid var(--terminal-border);
+      padding: 16px 30px;
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      font-size: 18px;
+      text-transform: uppercase;
+      border-radius: 0;
+      width: 100%;
+      margin: 10px 0;
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .light-mode .generate-btn-large {
+      background-color: var(--light-button-bg);
+      color: var(--light-text);
+      border: 2px solid var(--light-button-border);
+    }
+    
+    .generate-btn-large:hover {
+      background-color: var(--neon-pink);
+      color: #000;
+    }
+    
+    .light-mode .generate-btn-large:hover {
+      background-color: var(--light-accent);
+      color: #fff;
+    }
+    
+    .configuration-form, .command-output {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--terminal-bg);
+      border: 2px solid var(--terminal-border);
+      padding: 20px;
+      width: 80%;
+      max-height: 80%;
+      overflow-y: auto;
+      z-index: 15; /* Higher than background elements */
+      display: none;
+      color: #fff;
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .light-mode .configuration-form, .light-mode .command-output {
+      background: var(--light-bg);
+      border: 2px solid var(--light-border);
+      color: var(--light-text);
+    }
+    
+    .blur-background .logo,
+    .blur-background .image-box,
+    .blur-background .meta-title,
+    .blur-background .subtitle,
+    .blur-background .wallet-buttons,
+    .blur-background .generate-btn,
+    .blur-background #particleCanvas {
+      filter: blur(5px);
+    }
+    
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      cursor: pointer;
+      color: #fff;
+      background: none;
+      border: none;
+      padding: 0;
+      line-height: 1;
+      transition: color 0.3s ease;
+    }
+    
+    .light-mode .close-btn {
+      color: var(--light-text);
+    }
+    
+    .close-btn:hover {
+      color: var(--neon-pink);
+    }
+    
+    .light-mode .close-btn:hover {
+      color: var(--light-accent);
+    }
+    
+    .form-step {
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .form-step.active {
+      display: block;
+    }
+    
+    input, select {
+      background: var(--terminal-bg);
+      border: 2px solid var(--terminal-border);
+      color: #fff;
+      padding: 12px 15px;
+      margin: 10px 0;
+      width: 100%;
+      border-radius: 0;
+      font-family: 'Courier New', monospace;
+      box-sizing: border-box;
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .light-mode input, .light-mode select {
+      background: var(--light-bg);
+      border: 2px solid var(--light-border);
+      color: var(--light-text);
+    }
+    
+    input::placeholder {
+      color: #aaa;
+      transition: color 0.3s ease;
+    }
+    
+    .light-mode input::placeholder {
+      color: #888;
+    }
+    
+    input:focus, select:focus {
+      border-color: var(--neon-pink);
+      outline: none;
+    }
+    
+    .light-mode input:focus, .light-mode select:focus {
+      border-color: var(--light-accent);
+    }
+    
+    pre {
+      background: var(--terminal-bg);
+      border: 2px solid var(--terminal-border);
+      padding: 15px;
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      overflow-x: auto;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+      border-radius: 0;
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .light-mode pre {
+      background: var(--light-bg);
+      border: 2px solid var(--light-border);
+      color: var(--light-text);
+    }
+    
+    #particleCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      transition: filter 0.3s ease;
+      display: none; /* Default to hidden */
+    }
+    
+    .status-message {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--terminal-bg);
+      border: 2px solid var(--terminal-border);
+      padding: 10px;
+      z-index: 20; /* Above form and blur */
+      border-radius: 0;
+      transition: opacity 0.5s ease-out, background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+      display: none;
+    }
+    
+    .light-mode .status-message {
+      background: var(--light-bg);
+      border: 2px solid var(--light-border);
+      color: var(--light-text);
+    }
+    
+    .status-message.success {
+      border-color: var(--neon-green);
+    }
+    
+    .status-message.error {
+      border-color: var(--neon-pink);
+    }
+    
+    .light-mode .status-message.success {
+      border-color: #4CAF50;
+    }
+    
+    .light-mode .status-message.error {
+      border-color: #F44336;
+    }
+    
+    .status-message.visible {
+      display: block;
+    }
+    
+    .wallet-status-text {
+      font-size: 14px;
+      color: var(--neon-green);
+      margin-top: 5px;
+      transition: color 0.3s ease;
+    }
+    
+    .light-mode .wallet-status-text {
+      color: #4CAF50;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--neon-pink);
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+      transition: border-color 0.3s ease;
+    }
+    
+    .light-mode .loading {
+      border: 2px solid var(--light-accent);
+      border-top-color: transparent;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .debug-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--terminal-bg);
+      border-top: 2px solid var(--terminal-border);
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+      z-index: 10;
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .light-mode .debug-panel {
+      background: var(--light-bg);
+      border-top: 2px solid var(--light-border);
+      color: var(--light-text);
+    }
+    
+    label {
+      display: block;
+      margin: 10px 0 5px;
+      color: var(--neon-blue);
+      transition: color 0.3s ease;
+    }
+    
+    .light-mode label {
+      color: var(--light-accent);
+    }
+    
+    .theme-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 20;
+      background: none;
+      border: 2px solid var(--terminal-border);
+      color: #fff;
+      padding: 8px 12px;
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      font-size: 14px;
+      border-radius: 0;
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .light-mode .theme-toggle {
+      border: 2px solid var(--light-border);
+      color: var(--light-text);
+    }
+    
+    /* Build animation */
+    @keyframes buildProgress {
+      0% { width: 0; }
+      100% { width: 100%; }
+    }
+    
+    .build-progress {
+      height: 4px;
+      background-color: var(--neon-green);
+      width: 0;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      transition: width 0.5s ease;
+      display: none;
+    }
+    
+    .light-mode .build-progress {
+      background-color: var(--light-accent);
+    }
+    
+    .building .build-progress {
+      display: block;
+      animation: buildProgress 3s linear forwards;
+    }
+
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+    }
+    
+    .checkbox-container input[type="checkbox"] {
+      margin: 0;
+      width: 18px;
+      height: 18px;
+    }
+    
+    .checkbox-container label {
+      margin-left: 10px;
+      font-size: 14px;
+      color: #6366f1; /* Purple/indigo color shown in the screenshot */
+      cursor: pointer;
+    }
+
+    .status-message { display: block; padding: 10px; }
+.status-message.success { color: #00ff00; }
+.status-message.error { color: #ff0000; }
+.blurred { filter: blur(5px); }
+
+/* Hide empty status messages or those without visible content */
+.status-message:empty,
+.status-message:not(.visible):not(.success):not(.error) {
+  display: none !important;
+}
+
+/* Ensure status messages only display when they have content */
+#status, #walletStatus {
+  display: none;
+}
+
+#status:not(:empty), #walletStatus:not(:empty) {
+  display: block;
+}
+
+/* Additionally, you might want to ensure status messages appear only when needed */
+.status-message {
+  display: none;
+}
+
+.status-message.visible, 
+.status-message.success,
+.status-message.error {
+  display: block;
+}
+
+/* Help Section Styles - Add to your existing CSS file */
+.help-section {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  max-width: 800px;
+  max-height: 90vh;
+  background-color: var(--terminal-bg);
+  border: 2px solid var(--terminal-border);
+  padding: 20px;
+  z-index: 15;
+  overflow-y: auto;
+  display: none;
+  color: #fff;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.light-mode .help-section {
+  background: var(--light-bg);
+  border: 2px solid var(--light-border);
+  color: var(--light-text);
+}
+
+.help-section h2 {
+  text-align: center;
+  margin-bottom: 25px;
+  font-size: 24px;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: #ffb7c5;
+  border-bottom: 2px solid #ffb7c5;
+  padding-bottom: 10px;
+}
+
+.light-mode .help-section h2 {
+  color: var(--light-accent);
+  border-bottom: 2px solid var(--light-accent);
+}
+
+.setup-step {
+  display: flex;
+  margin-bottom: 25px;
+  align-items: flex-start;
+}
+
+.step-number {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: #2d2d3a;
+  border: 2px solid #ffb7c5;
+  color: #ffb7c5;
+  font-weight: bold;
+  margin-right: 15px;
+  flex-shrink: 0;
+}
+
+.light-mode .step-number {
+  background-color: var(--light-bg);
+  border: 2px solid var(--light-accent);
+  color: var(--light-accent);
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #ffcad4;
+  font-size: 18px;
+  text-transform: uppercase;
+}
+
+.light-mode .step-content h3 {
+  color: var(--light-accent);
+}
+
+.step-content p {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #d8d8e6;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.light-mode .step-content p {
+  color: var(--light-text);
+}
+
+/* Terminal styling */
+.terminal-container {
+  width: 100%;
+  margin-bottom: 10px;
+  border: 2px solid #ffb7c5;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.light-mode .terminal-container {
+  border: 2px solid var(--light-border);
+}
+
+.terminal-header {
+  height: 25px;
+  background-color: #333342;
+  border-bottom: 2px solid #ffb7c5;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  position: relative;
+}
+
+.light-mode .terminal-header {
+  background-color: var(--light-bg);
+  border-bottom: 2px solid var(--light-border);
+}
+
+.terminal-button {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.terminal-button:nth-child(1) {
+  background-color: #ff9a9a;
+}
+
+.terminal-button:nth-child(2) {
+  background-color: #ffdf9e;
+}
+
+.terminal-button:nth-child(3) {
+  background-color: #9effb9;
+}
+
+.light-mode .terminal-button:nth-child(1) {
+  background-color: #FF6B6B;
+}
+
+.light-mode .terminal-button:nth-child(2) {
+  background-color: #FFD166;
+}
+
+.light-mode .terminal-button:nth-child(3) {
+  background-color: #06D6A0;
+}
+
+.terminal-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffd6dd;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.light-mode .terminal-title {
+  color: var(--light-accent);
+}
+
+.terminal-body {
+  background-color: #2a2a38;
+  color: #d8d8e6;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.5;
+}
+
+.light-mode .terminal-body {
+  background-color: var(--light-bg);
+  color: var(--light-text);
+}
+
+.terminal-prompt {
+  color: #ffb7c5;
+  margin-right: 8px;
+}
+
+.light-mode .terminal-prompt {
+  color: var(--light-accent);
+}
+
+/* Help button */
+.help-button {
+  position: absolute;
+  top: 20px;
+  right: 1000px;
+  z-index: 5;
+}
+
+/*donation*/
+
