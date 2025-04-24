@@ -5,7 +5,8 @@
   "type": "module",
   "bin": {
     "perma-init": "bin/perma-init.cjs",
-    "perma-deploy": "bin/perma-deploy.js"
+    "perma-deploy": "bin/perma-deploy.js",
+    "perma-begin": "bin/perma-begin.cjs"
   },
   "dependencies": {
     "@ar.io/sdk": "^3.9.1",
@@ -26,7 +27,8 @@
     "build-and-deploy": "npm --version && npm run deploy"
   },
   "devDependencies": {
-    "ao": "^0.1.1"
+    "ao": "^0.1.1",
+    "inquirer": "^12.5.2"
   },
   "repository": {
     "type": "git",

@@ -317,7 +317,8 @@ if (antProcess && (config.arnsName || undername !== '@')) {
     console.log(`\n${colors.bright}${colors.fg.green}╔════ DEPLOYMENT SUCCESSFUL! ════╗${colors.reset}`);
     console.log(`${colors.fg.white}View your deployment at:${colors.reset}`);
     console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.ar.io/${manifestId} ${colors.reset}`);
-    
+    console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.net/${manifestId} ${colors.reset}`);
+
     // If ANT process is used, display the ANT URL
 if (antProcess && config.arnsName) {
   if (undername === '@' || !undername) {
