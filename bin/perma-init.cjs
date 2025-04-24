@@ -415,9 +415,9 @@ console.log(`\n${colors.fg.white}Get started with:${colors.reset}`);
 
 // If none of the properties are defined in the config, show npx command
 if (!hasAntConfig && !hasArnsName && !hasUndername) {
-  console.log(`${colors.bg.green}${colors.fg.black} npx perma-deploy-deploy ${colors.reset}`);
+  console.log(`${colors.bg.green}${colors.fg.black} npx perma-deploy-deploy and top up your wallet with turbo credits ${colors.reset}`);
 } else {
-  console.log(`${colors.bg.green}${colors.fg.black} Granting controller access ${colors.reset}`);
+  console.log(`${colors.bg.green}${colors.fg.black} Granting controller access and top up your wallet with turbo credits ${colors.reset}`);
 }
   }
 }

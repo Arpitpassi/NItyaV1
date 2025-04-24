@@ -8,6 +8,9 @@ import { execSync } from 'child_process';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import readline from 'readline';
+import archiver from 'archiver';
+import axios from 'axios';
+import FormData from 'form-data';
 
 // ANSI colors and styling for terminal output
 const colors = {
@@ -39,7 +42,6 @@ const colors = {
   }
 };
 
-
 // Function to show a progress bar in the terminal
 function showProgress(message, percent) {
   const width = 30;
@@ -66,6 +68,32 @@ function getCommitHash() {
     console.warn(`${colors.fg.yellow}Warning: Could not retrieve commit hash. Using "unknown".${colors.reset}`);
     return 'unknown';
   }
+}
+
+// Zip the folder
+async function zipFolder(source, out) {
+  return new Promise((resolve, reject) => {
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    const stream = fs.createWriteStream(out);
+    archive
+      .directory(source, false)
+      .on('error', err => reject(err))
+      .pipe(stream);
+    stream.on('close', () => resolve());
+    archive.finalize();
+  });
+}
+
+// Prompt user
+async function askQuestion(query) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise(resolve => rl.question(query, ans => {
+    rl.close();
+    resolve(ans);
+  }));
 }
 
 async function main() {
@@ -115,7 +143,6 @@ async function main() {
     }).argv;
 
   // Priority: config first, then command line args as override
-  // This is the key change - we're now preferring config.json values over command line args
   const deployFolder = path.resolve(process.cwd(), 
     config.deployFolder || argv['deploy-folder'] || 'dist');
   const dryRun = config.dryRun !== undefined ? config.dryRun : argv['dry-run'] || false;
@@ -124,6 +151,19 @@ async function main() {
   const network = config.network || argv['network'] || 'arweave';
   const buildCommand = config.buildCommand || 'npm run build';
   const deployBranch = config.deployBranch || 'main';
+
+  // Check sponsor configuration
+  const sponsorConfigDir = path.join(process.env.HOME, '.permaweb', 'sponsor');
+  const sponsorConfigPath = path.join(sponsorConfigDir, 'config.json');
+  if (!fs.existsSync(sponsorConfigPath)) {
+    console.error(`${colors.fg.red}Sponsor wallet not configured. Please run perma-sponsor-setup.sh.${colors.reset}`);
+    process.exit(1);
+  }
+  const sponsorConfig = JSON.parse(fs.readFileSync(sponsorConfigPath, 'utf-8'));
+  if (!sponsorConfig.sponsorWalletPath || !fs.existsSync(sponsorConfig.sponsorWalletPath)) {
+    console.error(`${colors.fg.red}Sponsor wallet keyfile not found at ${sponsorConfig.sponsorWalletPath}.${colors.reset}`);
+    process.exit(1);
+  }
 
   // Display configuration
   console.log(`\n${colors.bright}${colors.fg.yellow}╔════ DEPLOYMENT CONFIGURATION ════╗${colors.reset}`);
@@ -136,9 +176,11 @@ async function main() {
 
   // Get the DEPLOY_KEY from environment variable or config file
   let DEPLOY_KEY = process.env.DEPLOY_KEY;
+  let walletSource = 'environment variable DEPLOY_KEY';
   if (!DEPLOY_KEY && useConfigFile && config.walletPath) {
     try {
       DEPLOY_KEY = fs.readFileSync(config.walletPath, 'utf-8');
+      walletSource = `config file at ${config.walletPath}`;
       console.log(`${colors.fg.green}✓ Wallet loaded from ${config.walletPath}${colors.reset}`);
     } catch (error) {
       console.error(`${colors.fg.red}Error reading wallet from ${config.walletPath}: ${error.message}${colors.reset}`);
@@ -228,107 +270,136 @@ async function main() {
 
     console.log(`${colors.fg.blue}Deploying folder:${colors.reset} ${deployFolder}`);
 
-    
-    console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPLOADING TO ARWEAVE ════╗${colors.reset}`);
-    
     // Initialize TurboFactory with signer and token
     const turbo = TurboFactory.authenticated({
       signer: signer,
       token: token,
     });
 
-    // Simulate upload progress
-    let lastProgress = 0;
-    const updateInterval = setInterval(() => {
-      lastProgress += Math.random() * 0.05;
-      if (lastProgress > 0.95) {
-        clearInterval(updateInterval);
-        lastProgress = 0.95;
+    // Prompt user to choose sponsor pool or direct upload
+    const answer = await askQuestion('Insufficient Balnace in your wallet top it with Turbo credits or Do you want to use the sponsor pool for deployment? (y/n): ');
+    let manifestId;
+    if (answer.toLowerCase() === 'y') {
+      console.log(`${colors.fg.blue}Switching to sponsor server for upload${colors.reset}`);
+      const zipPath = path.join(process.cwd(), 'deploy.zip');
+      console.log(`${colors.fg.blue}Zipping folder...${colors.reset}`);
+      await zipFolder(deployFolder, zipPath);
+
+      console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
+      const form = new FormData();
+      form.append('zip', fs.createReadStream(zipPath));
+      const API_KEY = 'deploy-api-key-123'; // API key for deployer
+      try {
+        const response = await axios.post('http://localhost:3000/upload', form, {
+          headers: {
+            ...form.getHeaders(),
+            'X-API-Key': API_KEY
+          },
+        });
+        manifestId = response.data.manifestId;
+      } catch (error) {
+        console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
+        throw error;
+      } finally {
+        fs.unlinkSync(zipPath);
       }
-      showProgress("Uploading to Arweave", lastProgress);
-    }, 300);
+      console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
+    } else {
+      console.log(`${colors.fg.blue}Using project wallet for direct upload from ${walletSource}${colors.reset}`);
+      console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPLOADING TO ARWEAVE ════╗${colors.reset}`);
+      
+      // Simulate upload progress
+      let lastProgress = 0;
+      const updateInterval = setInterval(() => {
+        lastProgress += Math.random() * 0.05;
+        if (lastProgress > 0.95) {
+          clearInterval(updateInterval);
+          lastProgress = 0.95;
+        }
+        showProgress("Uploading to Arweave", lastProgress);
+      }, 300);
 
-    const uploadResult = await turbo.uploadFolder({
-      folderPath: deployFolder,
-      dataItemOpts: {
-        tags: [
-          {
-            name: 'App-Name',
-            value: 'PermaDeploy',
-          },
-          // prevents identical transaction Ids from eth wallets
-          {
-            name: 'anchor',
-            value: new Date().toISOString(),
-          },
-        ],
-      },
-    });
+      const uploadResult = await turbo.uploadFolder({
+        folderPath: deployFolder,
+        dataItemOpts: {
+          tags: [
+            {
+              name: 'App-Name',
+              value: 'PermaDeploy',
+            },
+            // prevents identical transaction Ids from eth wallets
+            {
+              name: 'anchor',
+              value: new Date().toISOString(),
+            },
+          ],
+        },
+      });
 
-    clearInterval(updateInterval);
-    showProgress("Uploading to Arweave", 1.0);
+      clearInterval(updateInterval);
+      showProgress("Uploading to Arweave", 1.0);
 
-    const manifestId = uploadResult.manifestResponse.id;
-    console.log(`${colors.fg.green}✓ Manifest uploaded with ID:${colors.reset}`);
-  
-    
-    
-   // Update ANT record if applicable
-if (antProcess && (config.arnsName || undername !== '@')) {
-  console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPDATING ANT RECORD ════╗${colors.reset}`);
-  console.log(`${colors.fg.blue}Updating ANT process:${colors.reset} ${antProcess}`);
-  console.log(`${colors.fg.blue}Undername:${colors.reset} ${undername}`);
-  
-  const ant = ANT.init({ processId: antProcess, signer });
-  const commitHash = getCommitHash();
-  
-  // Show simulated progress
-  for (let i = 0; i <= 100; i += 20) {
-    showProgress("Updating ANT record", i/100);
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  
-  // Update the ANT record (assumes the signer is a controller or owner)
-  await ant.setUndernameRecord(
-    {
-      undername: undername,
-      transactionId: manifestId,
-      ttlSeconds: 3600,
-    },
-    {
-      tags: [
-        {
-          name: 'GIT-HASH',
-          value: commitHash || '',
-        },
-        {
-          name: 'App-Name',
-          value: 'PermaDeploy',
-        },
-        {
-          name: 'anchor',
-          value: new Date().toISOString(),
-        },
-      ],
+      manifestId = uploadResult.manifestResponse.id;
+      console.log(`${colors.fg.green}✓ Manifest uploaded with ID:${colors.reset}`);
     }
-  );
-  console.log(`${colors.fg.green}✓ Updated ANT record for process ${antProcess} with undername ${undername}${colors.reset}`);
-}
+    
+    // Update ANT record if applicable
+    if (antProcess && (config.arnsName || undername !== '@')) {
+      console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPDATING ANT RECORD ════╗${colors.reset}`);
+      console.log(`${colors.fg.blue}Updating ANT process:${colors.reset} ${antProcess}`);
+      console.log(`${colors.fg.blue}Undername:${colors.reset} ${undername}`);
+      
+      const ant = ANT.init({ processId: antProcess, signer });
+      const commitHash = getCommitHash();
+      
+      // Show simulated progress
+      for (let i = 0; i <= 100; i += 20) {
+        showProgress("Updating ANT record", i/100);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      // Update the ANT record (assumes the signer is a controller or owner)
+      await ant.setUndernameRecord(
+        {
+          undername: undername,
+          transactionId: manifestId,
+          ttlSeconds: 3600,
+        },
+        {
+          tags: [
+            {
+              name: 'GIT-HASH',
+              value: commitHash || '',
+            },
+            {
+              name: 'App-Name',
+              value: 'PermaDeploy',
+            },
+            {
+              name: 'anchor',
+              value: new Date().toISOString(),
+            },
+          ],
+        }
+      );
+      console.log(`${colors.fg.green}✓ Updated ANT record for process ${antProcess} with undername ${undername}${colors.reset}`);
+    }
+    
     console.log(`\n${colors.bright}${colors.fg.green}╔════ DEPLOYMENT SUCCESSFUL! ════╗${colors.reset}`);
     console.log(`${colors.fg.white}View your deployment at:${colors.reset}`);
     console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.ar.io/${manifestId} ${colors.reset}`);
     console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.net/${manifestId} ${colors.reset}`);
 
     // If ANT process is used, display the ANT URL
-if (antProcess && config.arnsName) {
-  if (undername === '@' || !undername) {
-    console.log(`\n${colors.fg.white}Or via ARNS at:${colors.reset}`);
-    console.log(`${colors.bg.blue}${colors.fg.white} https://${config.arnsName}.ar.io${colors.reset}`);
-  } else {
-    console.log(`\n${colors.fg.white}Or via ARNS at:${colors.reset}`);
-    console.log(`${colors.bg.blue}${colors.fg.white} https://${undername}_${config.arnsName}.ar.io ${colors.reset}`);
-  }
-}
+    if (antProcess && config.arnsName) {
+      if (undername === '@' || !undername) {
+        console.log(`\n${colors.fg.white}Or via ARNS at:${colors.reset}`);
+        console.log(`${colors.bg.blue}${colors.fg.white} https://${config.arnsName}.ar.io${colors.reset}`);
+      } else {
+        console.log(`\n${colors.fg.white}Or via ARNS at:${colors.reset}`);
+        console.log(`${colors.bg.blue}${colors.fg.white} https://${undername}_${config.arnsName}.ar.io ${colors.reset}`);
+      }
+    }
     
     console.log(`${colors.fg.green}╚════════════════════════════════╝${colors.reset}`);
   } catch (error) {
