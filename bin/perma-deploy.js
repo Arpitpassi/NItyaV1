@@ -96,6 +96,29 @@ async function askQuestion(query) {
   }));
 }
 
+// Calculate folder size in KB
+function getFolderSizeInKB(directoryPath) {
+  let totalSize = 0;
+  
+  function getAllFilesSync(dirPath) {
+    const files = fs.readdirSync(dirPath);
+    
+    files.forEach(file => {
+      const filePath = path.join(dirPath, file);
+      const stats = fs.statSync(filePath);
+      
+      if (stats.isDirectory()) {
+        getAllFilesSync(filePath);
+      } else {
+        totalSize += stats.size;
+      }
+    });
+  }
+  
+  getAllFilesSync(directoryPath);
+  return totalSize / 1024; // Convert bytes to KB
+}
+
 async function main() {
   // First, load config from file if it exists
   let config = {};
@@ -276,10 +299,25 @@ async function main() {
       token: token,
     });
 
-    // Prompt user to choose sponsor pool or direct upload
-    const answer = await askQuestion('Insufficient Balnace in your wallet top it with Turbo credits or Do you want to use the sponsor pool for deployment? (y/n): ');
+    // Check folder size
+    const folderSizeKB = getFolderSizeInKB(deployFolder);
+    console.log(`${colors.fg.blue}Folder size:${colors.reset} ${folderSizeKB.toFixed(2)} KB`);
+    
+    // Decision based on folder size
+    let useDirectUpload = folderSizeKB < 100;
+    let useSponsorPool = false;
+    
+    if (!useDirectUpload) {
+      // Prompt user to choose sponsor pool or direct upload
+      const answer = await askQuestion('Folder size exceeds 100KB. Do you want to use the sponsor pool for deployment? (y/n): ');
+      useSponsorPool = answer.toLowerCase() === 'y';
+      useDirectUpload = !useSponsorPool;
+    } else {
+      console.log(`${colors.fg.green}✓ Folder size is less than 100KB. Using direct upload without balance check.${colors.reset}`);
+    }
+
     let manifestId;
-    if (answer.toLowerCase() === 'y') {
+    if (useSponsorPool) {
       console.log(`${colors.fg.blue}Switching to sponsor server for upload${colors.reset}`);
       const zipPath = path.join(process.cwd(), 'deploy.zip');
       console.log(`${colors.fg.blue}Zipping folder...${colors.reset}`);
