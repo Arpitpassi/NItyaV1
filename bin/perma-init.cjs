@@ -9,7 +9,7 @@ const Arweave = require('arweave');
 const { execSync } = require('child_process');
 const readline = require('readline');
 
-// ANSI colors and styling for terminal output
+// ANSI colors and styling for terminal outputs
 const colors = {
   reset: "\x1b[0m",
   bright: "\x1b[1m",
