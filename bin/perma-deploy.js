@@ -19,7 +19,6 @@ const colors = {
   dim: "\x1b[2m",
   underscore: "\x1b[4m",
   blink: "\x1b[5m",
-  
   fg: {
     black: "\x1b[30m",
     red: "\x1b[31m",
@@ -119,6 +118,29 @@ function getFolderSizeInKB(directoryPath) {
   return totalSize / 1024; // Convert bytes to KB
 }
 
+// Function to select pool type
+async function selectPoolType() {
+  console.log(`\n${colors.bright}${colors.fg.yellow}╔════ POOL SELECTION ════╗${colors.reset}`);
+  console.log(`${colors.fg.cyan}Please select your pool type:${colors.reset}`);
+  console.log(`${colors.fg.white}1. Community pool deployment${colors.reset}`);
+  console.log(`${colors.fg.white}2. Event pool deployment${colors.reset}`);
+  const choice = await askQuestion('Enter your choice (1 or 2): ');
+  
+  if (choice === '1') {
+    console.log(`${colors.fg.green}✓ Community pool selected${colors.reset}`);
+    return { poolType: 'community' };
+  } else if (choice === '2') {
+    console.log(`${colors.fg.green}✓ Event pool selected${colors.reset}`);
+    const eventPoolName = await askQuestion('Enter the name of your event pool: ');
+    const eventPoolPassword = await askQuestion('Enter the password for your event pool: ');
+    console.log(`${colors.fg.green}✓ Event pool '${eventPoolName}' configured${colors.reset}`);
+    return { poolType: 'event', eventPoolName, eventPoolPassword };
+  } else {
+    console.error(`${colors.fg.red}Invalid choice. Defaulting to community pool.${colors.reset}`);
+    return { poolType: 'community' };
+  }
+}
+
 async function main() {
   // First, load config from file if it exists
   let config = {};
@@ -163,26 +185,6 @@ async function main() {
       type: 'string',
       description: 'Network for Ethereum-based signers.',
       choices: ['ethereum', 'polygon'],
-
-    })
-
-      .option('pool-type', {
-        type: 'string',
-        description: 'Type of pool to use for deployment',
-        choices: ['community', 'event'],
-        default: 'community'
-      })
-      .option('event-pool-name', {
-        type: 'string',
-        description: 'Name of the event pool (required for event pool deployment)'
-      })
-    .option('event-pool-password', {
-      type: 'string',
-      description: 'Password for the event pool (required for event pool deployment)'
-    })
-    .option('user-identifier', {
-      type: 'string',
-      description: 'Unique identifier for the user (required for event pool deployment)'
     }).argv;
    
   // Priority: config first, then command line args as override
@@ -327,55 +329,34 @@ async function main() {
     if (useSponsorPool) {
       console.log(`${colors.fg.blue}Switching to sponsor server for upload${colors.reset}`);
       
-      // Only check sponsor configuration if we're actually going to use it
-      const sponsorConfigDir = path.join(process.env.HOME, '.permaweb', 'sponsor');
+      // Select pool type
+      const poolConfig = await selectPoolType();
+      
+      // Check sponsor configuration
+      const sponsorConfigDir = path.join(process.env.HOME, '.nitya', 'sponsor');
       const sponsorConfigPath = path.join(sponsorConfigDir, 'config.json');
       if (!fs.existsSync(sponsorConfigPath)) {
-        console.error(`${colors.fg.red}Sponsor wallet not configured. Please run perma-sponsor-setup.sh.${colors.reset}`);
+        console.error(`${colors.fg.red}Sponsor wallet not configured. Please run nitya-setup.${colors.reset}`);
         process.exit(1);
       }
-      
-      // Handle pool type selection
-      const poolType = argv['pool-type'] || 'community';
-      let eventPoolName = argv['event-pool-name'];
-      let eventPoolPassword = argv['event-pool-password'];
-      let userIdentifier = argv['user-identifier'];
-      
-      if (poolType === 'event') {
-        // If event pool is selected but details are missing, prompt for them
-        if (!eventPoolName) {
-          eventPoolName = await askQuestion('Enter the event pool name: ');
-        }
-        
-        if (!eventPoolPassword) {
-          eventPoolPassword = await askQuestion('Enter the event pool password: ');
-        }
-        
-        if (!userIdentifier) {
-          userIdentifier = await askQuestion('Enter your unique identifier (email/username): ');
-        }
-        
-        console.log(`${colors.fg.blue}Using event pool: ${colors.reset}${eventPoolName}`);
-      } else {
-        console.log(`${colors.fg.blue}Using community pool${colors.reset}`);
+      const sponsorConfig = JSON.parse(fs.readFileSync(sponsorConfigPath, 'utf-8'));
+      if (!sponsorConfig.sponsorWalletPath || !fs.existsSync(sponsorConfig.sponsorWalletPath)) {
+        console.error(`${colors.fg.red}Sponsor wallet keyfile not found at ${sponsorConfig.sponsorWalletPath}.${colors.reset}`);
+        process.exit(1);
       }
       
       const zipPath = path.join(process.cwd(), 'deploy.zip');
       console.log(`${colors.fg.blue}Zipping folder...${colors.reset}`);
       await zipFolder(deployFolder, zipPath);
-    
+
       console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
       const form = new FormData();
       form.append('zip', fs.createReadStream(zipPath));
-      form.append('poolType', poolType);
-      
-      // Add event pool details if applicable
-      if (poolType === 'event') {
-        form.append('eventPoolName', eventPoolName);
-        form.append('eventPoolPassword', eventPoolPassword);
-        form.append('userIdentifier', userIdentifier);
+      form.append('poolType', poolConfig.poolType);
+      if (poolConfig.poolType === 'event') {
+        form.append('eventPoolName', poolConfig.eventPoolName);
+        form.append('eventPoolPassword', poolConfig.eventPoolPassword);
       }
-      
       const API_KEY = 'deploy-api-key-123'; // API key for deployer
       try {
         const response = await axios.post('http://localhost:3000/upload', form, {
@@ -385,651 +366,11 @@ async function main() {
           },
         });
         manifestId = response.data.manifestId;
-        
-        // Show deployment pool information
-        if (response.data.deployedBy) {
-          console.log(`${colors.fg.green}✓ Deployed by: ${colors.reset}${response.data.deployedBy}`);
-        }
       } catch (error) {
         console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
         throw error;
       } finally {
         fs.unlinkSync(zipPath);
-      }if (useSponsorPool) {
-        console.log(`\n${colors.bright}${colors.fg.yellow}╔════ SPONSOR POOL CONFIGURATION ════╗${colors.reset}`);
-        
-        // Check for Nitya configuration
-        const nityaConfigDir = path.join(process.env.HOME, '.nitya', 'sponsor');
-        const nityaConfigPath = path.join(nityaConfigDir, 'config.json');
-        let nityaConfig = null;
-        
-        if (fs.existsSync(nityaConfigPath)) {
-          try {
-            nityaConfig = JSON.parse(fs.readFileSync(nityaConfigPath, 'utf-8'));
-            console.log(`${colors.fg.green}✓ Found Nitya wallet configuration${colors.reset}`);
-          } catch (error) {
-            console.warn(`${colors.fg.yellow}Warning: Could not parse Nitya configuration: ${error.message}${colors.reset}`);
-          }
-        }
-      
-        // Handle pool type selection
-        let poolType = argv['pool-type'];
-        let eventPoolName = argv['event-pool-name'];
-        let eventPoolPassword = argv['event-pool-password'];
-        let userIdentifier = argv['user-identifier'];
-        
-        // If pool type not provided and we have a Nitya config, use that
-        if (!poolType && nityaConfig && nityaConfig.poolType) {
-          poolType = nityaConfig.poolType;
-          console.log(`${colors.fg.blue}Using pool type from Nitya config: ${colors.reset}${poolType}`);
-          
-          // If it's an event pool, use the config values
-          if (poolType === 'event' && nityaConfig.eventPoolName) {
-            eventPoolName = nityaConfig.eventPoolName;
-            eventPoolPassword = nityaConfig.eventPoolPassword;
-            console.log(`${colors.fg.blue}Using event pool: ${colors.reset}${eventPoolName}`);
-          }
-        }
-        // If still no pool type, prompt the user
-        else if (!poolType) {
-          console.log(`${colors.fg.cyan}Please select your pool type:${colors.reset}`);
-          console.log(`${colors.fg.white}1. Community pool deployment${colors.reset}`);
-          console.log(`${colors.fg.white}2. Event pool deployment${colors.reset}`);
-          
-          const poolChoice = await askQuestion("Enter your choice (1 or 2): ");
-          
-          if (poolChoice === '1') {
-            poolType = 'community';
-            console.log(`${colors.fg.green}✓ Community pool selected${colors.reset}`);
-          } else if (poolChoice === '2') {
-            poolType = 'event';
-            console.log(`${colors.fg.green}✓ Event pool selected${colors.reset}`);
-          } else {
-            console.log(`${colors.fg.yellow}Invalid choice. Defaulting to community pool...${colors.reset}`);
-            poolType = 'community';
-          }
-        }
-        
-        // For event pools, gather required information
-        if (poolType === 'event') {
-          if (!eventPoolName) {
-            eventPoolName = await askQuestion("Enter a name for your event pool: ");
-          }
-          
-          if (!eventPoolPassword) {
-            // Using a simple approach for password input without masking for compatibility
-            eventPoolPassword = await askQuestion("Enter a password for your event pool: ");
-          }
-          
-          if (!userIdentifier) {
-            userIdentifier = await askQuestion("Enter your unique identifier (email/username): ");
-          }
-          
-          console.log(`${colors.fg.green}✓ Using event pool: ${colors.reset}${eventPoolName}`);
-        } else {
-          console.log(`${colors.fg.green}✓ Using community pool${colors.reset}`);
-        }
-        
-        // Now proceed with the upload process
-        const zipPath = path.join(process.cwd(), 'deploy.zip');
-        console.log(`\n${colors.fg.blue}Zipping folder...${colors.reset}`);
-        await zipFolder(deployFolder, zipPath);
-      
-        console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
-        const form = new FormData();
-        form.append('zip', fs.createReadStream(zipPath));
-        form.append('poolType', poolType);
-        
-        // Add event pool details if applicable
-        if (poolType === 'event') {
-          form.append('eventPoolName', eventPoolName);
-          form.append('eventPoolPassword', eventPoolPassword);
-          form.append('userIdentifier', userIdentifier);
-        }
-        
-        // Show upload progress animation
-        let uploadProgress = 0;
-        const progressInterval = setInterval(() => {
-          uploadProgress += Math.random() * 5;
-          if (uploadProgress > 95) uploadProgress = 95;
-          showProgress("Uploading to sponsor server", uploadProgress/100);
-        }, 200);
-        
-        const API_KEY = 'deploy-api-key-123'; // API key for deployer
-        try {
-          const response = await axios.post('http://localhost:3000/upload', form, {
-            headers: {
-              ...form.getHeaders(),
-              'X-API-Key': API_KEY
-            },
-          });
-          
-          // Clear progress and show 100%
-          clearInterval(progressInterval);
-          showProgress("Uploading to sponsor server", 1.0);
-          
-          manifestId = response.data.manifestId;
-          
-          // Show deployment pool information
-          if (response.data.deployedBy) {
-            console.log(`${colors.fg.green}✓ Deployed by: ${colors.reset}${response.data.deployedBy}`);
-          }
-        } catch (error) {
-          clearInterval(progressInterval);
-          console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
-          throw error;
-        } finally {
-          fs.unlinkSync(zipPath);
-        }
-        console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
-      }if (useSponsorPool) {
-        console.log(`\n${colors.bright}${colors.fg.yellow}╔════ SPONSOR POOL CONFIGURATION ════╗${colors.reset}`);
-        
-        // Check for Nitya configuration
-        const nityaConfigDir = path.join(process.env.HOME, '.nitya', 'sponsor');
-        const nityaConfigPath = path.join(nityaConfigDir, 'config.json');
-        let nityaConfig = null;
-        
-        if (fs.existsSync(nityaConfigPath)) {
-          try {
-            nityaConfig = JSON.parse(fs.readFileSync(nityaConfigPath, 'utf-8'));
-            console.log(`${colors.fg.green}✓ Found Nitya wallet configuration${colors.reset}`);
-          } catch (error) {
-            console.warn(`${colors.fg.yellow}Warning: Could not parse Nitya configuration: ${error.message}${colors.reset}`);
-          }
-        }
-      
-        // Handle pool type selection
-        let poolType = argv['pool-type'];
-        let eventPoolName = argv['event-pool-name'];
-        let eventPoolPassword = argv['event-pool-password'];
-        let userIdentifier = argv['user-identifier'];
-        
-        // If pool type not provided and we have a Nitya config, use that
-        if (!poolType && nityaConfig && nityaConfig.poolType) {
-          poolType = nityaConfig.poolType;
-          console.log(`${colors.fg.blue}Using pool type from Nitya config: ${colors.reset}${poolType}`);
-          
-          // If it's an event pool, use the config values
-          if (poolType === 'event' && nityaConfig.eventPoolName) {
-            eventPoolName = nityaConfig.eventPoolName;
-            eventPoolPassword = nityaConfig.eventPoolPassword;
-            console.log(`${colors.fg.blue}Using event pool: ${colors.reset}${eventPoolName}`);
-          }
-        }
-        // If still no pool type, prompt the user
-        else if (!poolType) {
-          console.log(`${colors.fg.cyan}Please select your pool type:${colors.reset}`);
-          console.log(`${colors.fg.white}1. Community pool deployment${colors.reset}`);
-          console.log(`${colors.fg.white}2. Event pool deployment${colors.reset}`);
-          
-          const poolChoice = await askQuestion("Enter your choice (1 or 2): ");
-          
-          if (poolChoice === '1') {
-            poolType = 'community';
-            console.log(`${colors.fg.green}✓ Community pool selected${colors.reset}`);
-          } else if (poolChoice === '2') {
-            poolType = 'event';
-            console.log(`${colors.fg.green}✓ Event pool selected${colors.reset}`);
-          } else {
-            console.log(`${colors.fg.yellow}Invalid choice. Defaulting to community pool...${colors.reset}`);
-            poolType = 'community';
-          }
-        }
-        
-        // For event pools, gather required information
-        if (poolType === 'event') {
-          if (!eventPoolName) {
-            eventPoolName = await askQuestion("Enter a name for your event pool: ");
-          }
-          
-          if (!eventPoolPassword) {
-            // Using a simple approach for password input without masking for compatibility
-            eventPoolPassword = await askQuestion("Enter a password for your event pool: ");
-          }
-          
-          if (!userIdentifier) {
-            userIdentifier = await askQuestion("Enter your unique identifier (email/username): ");
-          }
-          
-          console.log(`${colors.fg.green}✓ Using event pool: ${colors.reset}${eventPoolName}`);
-        } else {
-          console.log(`${colors.fg.green}✓ Using community pool${colors.reset}`);
-        }
-        
-        // Now proceed with the upload process
-        const zipPath = path.join(process.cwd(), 'deploy.zip');
-        console.log(`\n${colors.fg.blue}Zipping folder...${colors.reset}`);
-        await zipFolder(deployFolder, zipPath);
-      
-        console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
-        const form = new FormData();
-        form.append('zip', fs.createReadStream(zipPath));
-        form.append('poolType', poolType);
-        
-        // Add event pool details if applicable
-        if (poolType === 'event') {
-          form.append('eventPoolName', eventPoolName);
-          form.append('eventPoolPassword', eventPoolPassword);
-          form.append('userIdentifier', userIdentifier);
-        }
-        
-        // Show upload progress animation
-        let uploadProgress = 0;
-        const progressInterval = setInterval(() => {
-          uploadProgress += Math.random() * 5;
-          if (uploadProgress > 95) uploadProgress = 95;
-          showProgress("Uploading to sponsor server", uploadProgress/100);
-        }, 200);
-        
-        const API_KEY = 'deploy-api-key-123'; // API key for deployer
-        try {
-          const response = await axios.post('http://localhost:3000/upload', form, {
-            headers: {
-              ...form.getHeaders(),
-              'X-API-Key': API_KEY
-            },
-          });
-          
-          // Clear progress and show 100%
-          clearInterval(progressInterval);
-          showProgress("Uploading to sponsor server", 1.0);
-          
-          manifestId = response.data.manifestId;
-          
-          // Show deployment pool information
-          if (response.data.deployedBy) {
-            console.log(`${colors.fg.green}✓ Deployed by: ${colors.reset}${response.data.deployedBy}`);
-          }
-        } catch (error) {
-          clearInterval(progressInterval);
-          console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
-          throw error;
-        } finally {
-          fs.unlinkSync(zipPath);
-        }
-        console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
-      }if (useSponsorPool) {
-        console.log(`\n${colors.bright}${colors.fg.yellow}╔════ SPONSOR POOL CONFIGURATION ════╗${colors.reset}`);
-        
-        // Check for Nitya configuration
-        const nityaConfigDir = path.join(process.env.HOME, '.nitya', 'sponsor');
-        const nityaConfigPath = path.join(nityaConfigDir, 'config.json');
-        let nityaConfig = null;
-        
-        if (fs.existsSync(nityaConfigPath)) {
-          try {
-            nityaConfig = JSON.parse(fs.readFileSync(nityaConfigPath, 'utf-8'));
-            console.log(`${colors.fg.green}✓ Found Nitya wallet configuration${colors.reset}`);
-          } catch (error) {
-            console.warn(`${colors.fg.yellow}Warning: Could not parse Nitya configuration: ${error.message}${colors.reset}`);
-          }
-        }
-      
-        // Handle pool type selection
-        let poolType = argv['pool-type'];
-        let eventPoolName = argv['event-pool-name'];
-        let eventPoolPassword = argv['event-pool-password'];
-        let userIdentifier = argv['user-identifier'];
-        
-        // If pool type not provided and we have a Nitya config, use that
-        if (!poolType && nityaConfig && nityaConfig.poolType) {
-          poolType = nityaConfig.poolType;
-          console.log(`${colors.fg.blue}Using pool type from Nitya config: ${colors.reset}${poolType}`);
-          
-          // If it's an event pool, use the config values
-          if (poolType === 'event' && nityaConfig.eventPoolName) {
-            eventPoolName = nityaConfig.eventPoolName;
-            eventPoolPassword = nityaConfig.eventPoolPassword;
-            console.log(`${colors.fg.blue}Using event pool: ${colors.reset}${eventPoolName}`);
-          }
-        }
-        // If still no pool type, prompt the user
-        else if (!poolType) {
-          console.log(`${colors.fg.cyan}Please select your pool type:${colors.reset}`);
-          console.log(`${colors.fg.white}1. Community pool deployment${colors.reset}`);
-          console.log(`${colors.fg.white}2. Event pool deployment${colors.reset}`);
-          
-          const poolChoice = await askQuestion("Enter your choice (1 or 2): ");
-          
-          if (poolChoice === '1') {
-            poolType = 'community';
-            console.log(`${colors.fg.green}✓ Community pool selected${colors.reset}`);
-          } else if (poolChoice === '2') {
-            poolType = 'event';
-            console.log(`${colors.fg.green}✓ Event pool selected${colors.reset}`);
-          } else {
-            console.log(`${colors.fg.yellow}Invalid choice. Defaulting to community pool...${colors.reset}`);
-            poolType = 'community';
-          }
-        }
-        
-        // For event pools, gather required information
-        if (poolType === 'event') {
-          if (!eventPoolName) {
-            eventPoolName = await askQuestion("Enter a name for your event pool: ");
-          }
-          
-          if (!eventPoolPassword) {
-            // Using a simple approach for password input without masking for compatibility
-            eventPoolPassword = await askQuestion("Enter a password for your event pool: ");
-          }
-          
-          if (!userIdentifier) {
-            userIdentifier = await askQuestion("Enter your unique identifier (email/username): ");
-          }
-          
-          console.log(`${colors.fg.green}✓ Using event pool: ${colors.reset}${eventPoolName}`);
-        } else {
-          console.log(`${colors.fg.green}✓ Using community pool${colors.reset}`);
-        }
-        
-        // Now proceed with the upload process
-        const zipPath = path.join(process.cwd(), 'deploy.zip');
-        console.log(`\n${colors.fg.blue}Zipping folder...${colors.reset}`);
-        await zipFolder(deployFolder, zipPath);
-      
-        console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
-        const form = new FormData();
-        form.append('zip', fs.createReadStream(zipPath));
-        form.append('poolType', poolType);
-        
-        // Add event pool details if applicable
-        if (poolType === 'event') {
-          form.append('eventPoolName', eventPoolName);
-          form.append('eventPoolPassword', eventPoolPassword);
-          form.append('userIdentifier', userIdentifier);
-        }
-        
-        // Show upload progress animation
-        let uploadProgress = 0;
-        const progressInterval = setInterval(() => {
-          uploadProgress += Math.random() * 5;
-          if (uploadProgress > 95) uploadProgress = 95;
-          showProgress("Uploading to sponsor server", uploadProgress/100);
-        }, 200);
-        
-        const API_KEY = 'deploy-api-key-123'; // API key for deployer
-        try {
-          const response = await axios.post('http://localhost:3000/upload', form, {
-            headers: {
-              ...form.getHeaders(),
-              'X-API-Key': API_KEY
-            },
-          });
-          
-          // Clear progress and show 100%
-          clearInterval(progressInterval);
-          showProgress("Uploading to sponsor server", 1.0);
-          
-          manifestId = response.data.manifestId;
-          
-          // Show deployment pool information
-          if (response.data.deployedBy) {
-            console.log(`${colors.fg.green}✓ Deployed by: ${colors.reset}${response.data.deployedBy}`);
-          }
-        } catch (error) {
-          clearInterval(progressInterval);
-          console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
-          throw error;
-        } finally {
-          fs.unlinkSync(zipPath);
-        }
-        console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
-      }if (useSponsorPool) {
-        console.log(`\n${colors.bright}${colors.fg.yellow}╔════ SPONSOR POOL CONFIGURATION ════╗${colors.reset}`);
-        
-        // Check for Nitya configuration
-        const nityaConfigDir = path.join(process.env.HOME, '.nitya', 'sponsor');
-        const nityaConfigPath = path.join(nityaConfigDir, 'config.json');
-        let nityaConfig = null;
-        
-        if (fs.existsSync(nityaConfigPath)) {
-          try {
-            nityaConfig = JSON.parse(fs.readFileSync(nityaConfigPath, 'utf-8'));
-            console.log(`${colors.fg.green}✓ Found Nitya wallet configuration${colors.reset}`);
-          } catch (error) {
-            console.warn(`${colors.fg.yellow}Warning: Could not parse Nitya configuration: ${error.message}${colors.reset}`);
-          }
-        }
-      
-        // Handle pool type selection
-        let poolType = argv['pool-type'];
-        let eventPoolName = argv['event-pool-name'];
-        let eventPoolPassword = argv['event-pool-password'];
-        let userIdentifier = argv['user-identifier'];
-        
-        // If pool type not provided and we have a Nitya config, use that
-        if (!poolType && nityaConfig && nityaConfig.poolType) {
-          poolType = nityaConfig.poolType;
-          console.log(`${colors.fg.blue}Using pool type from Nitya config: ${colors.reset}${poolType}`);
-          
-          // If it's an event pool, use the config values
-          if (poolType === 'event' && nityaConfig.eventPoolName) {
-            eventPoolName = nityaConfig.eventPoolName;
-            eventPoolPassword = nityaConfig.eventPoolPassword;
-            console.log(`${colors.fg.blue}Using event pool: ${colors.reset}${eventPoolName}`);
-          }
-        }
-        // If still no pool type, prompt the user
-        else if (!poolType) {
-          console.log(`${colors.fg.cyan}Please select your pool type:${colors.reset}`);
-          console.log(`${colors.fg.white}1. Community pool deployment${colors.reset}`);
-          console.log(`${colors.fg.white}2. Event pool deployment${colors.reset}`);
-          
-          const poolChoice = await askQuestion("Enter your choice (1 or 2): ");
-          
-          if (poolChoice === '1') {
-            poolType = 'community';
-            console.log(`${colors.fg.green}✓ Community pool selected${colors.reset}`);
-          } else if (poolChoice === '2') {
-            poolType = 'event';
-            console.log(`${colors.fg.green}✓ Event pool selected${colors.reset}`);
-          } else {
-            console.log(`${colors.fg.yellow}Invalid choice. Defaulting to community pool...${colors.reset}`);
-            poolType = 'community';
-          }
-        }
-        
-        // For event pools, gather required information
-        if (poolType === 'event') {
-          if (!eventPoolName) {
-            eventPoolName = await askQuestion("Enter a name for your event pool: ");
-          }
-          
-          if (!eventPoolPassword) {
-            // Using a simple approach for password input without masking for compatibility
-            eventPoolPassword = await askQuestion("Enter a password for your event pool: ");
-          }
-          
-          if (!userIdentifier) {
-            userIdentifier = await askQuestion("Enter your unique identifier (email/username): ");
-          }
-          
-          console.log(`${colors.fg.green}✓ Using event pool: ${colors.reset}${eventPoolName}`);
-        } else {
-          console.log(`${colors.fg.green}✓ Using community pool${colors.reset}`);
-        }
-        
-        // Now proceed with the upload process
-        const zipPath = path.join(process.cwd(), 'deploy.zip');
-        console.log(`\n${colors.fg.blue}Zipping folder...${colors.reset}`);
-        await zipFolder(deployFolder, zipPath);
-      
-        console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
-        const form = new FormData();
-        form.append('zip', fs.createReadStream(zipPath));
-        form.append('poolType', poolType);
-        
-        // Add event pool details if applicable
-        if (poolType === 'event') {
-          form.append('eventPoolName', eventPoolName);
-          form.append('eventPoolPassword', eventPoolPassword);
-          form.append('userIdentifier', userIdentifier);
-        }
-        
-        // Show upload progress animation
-        let uploadProgress = 0;
-        const progressInterval = setInterval(() => {
-          uploadProgress += Math.random() * 5;
-          if (uploadProgress > 95) uploadProgress = 95;
-          showProgress("Uploading to sponsor server", uploadProgress/100);
-        }, 200);
-        
-        const API_KEY = 'deploy-api-key-123'; // API key for deployer
-        try {
-          const response = await axios.post('http://localhost:3000/upload', form, {
-            headers: {
-              ...form.getHeaders(),
-              'X-API-Key': API_KEY
-            },
-          });
-          
-          // Clear progress and show 100%
-          clearInterval(progressInterval);
-          showProgress("Uploading to sponsor server", 1.0);
-          
-          manifestId = response.data.manifestId;
-          
-          // Show deployment pool information
-          if (response.data.deployedBy) {
-            console.log(`${colors.fg.green}✓ Deployed by: ${colors.reset}${response.data.deployedBy}`);
-          }
-        } catch (error) {
-          clearInterval(progressInterval);
-          console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
-          throw error;
-        } finally {
-          fs.unlinkSync(zipPath);
-        }
-        console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
-      }if (useSponsorPool) {
-        console.log(`\n${colors.bright}${colors.fg.yellow}╔════ SPONSOR POOL CONFIGURATION ════╗${colors.reset}`);
-        
-        // Check for Nitya configuration
-        const nityaConfigDir = path.join(process.env.HOME, '.nitya', 'sponsor');
-        const nityaConfigPath = path.join(nityaConfigDir, 'config.json');
-        let nityaConfig = null;
-        
-        if (fs.existsSync(nityaConfigPath)) {
-          try {
-            nityaConfig = JSON.parse(fs.readFileSync(nityaConfigPath, 'utf-8'));
-            console.log(`${colors.fg.green}✓ Found Nitya wallet configuration${colors.reset}`);
-          } catch (error) {
-            console.warn(`${colors.fg.yellow}Warning: Could not parse Nitya configuration: ${error.message}${colors.reset}`);
-          }
-        }
-      
-        // Handle pool type selection
-        let poolType = argv['pool-type'];
-        let eventPoolName = argv['event-pool-name'];
-        let eventPoolPassword = argv['event-pool-password'];
-        let userIdentifier = argv['user-identifier'];
-        
-        // If pool type not provided and we have a Nitya config, use that
-        if (!poolType && nityaConfig && nityaConfig.poolType) {
-          poolType = nityaConfig.poolType;
-          console.log(`${colors.fg.blue}Using pool type from Nitya config: ${colors.reset}${poolType}`);
-          
-          // If it's an event pool, use the config values
-          if (poolType === 'event' && nityaConfig.eventPoolName) {
-            eventPoolName = nityaConfig.eventPoolName;
-            eventPoolPassword = nityaConfig.eventPoolPassword;
-            console.log(`${colors.fg.blue}Using event pool: ${colors.reset}${eventPoolName}`);
-          }
-        }
-        // If still no pool type, prompt the user
-        else if (!poolType) {
-          console.log(`${colors.fg.cyan}Please select your pool type:${colors.reset}`);
-          console.log(`${colors.fg.white}1. Community pool deployment${colors.reset}`);
-          console.log(`${colors.fg.white}2. Event pool deployment${colors.reset}`);
-          
-          const poolChoice = await askQuestion("Enter your choice (1 or 2): ");
-          
-          if (poolChoice === '1') {
-            poolType = 'community';
-            console.log(`${colors.fg.green}✓ Community pool selected${colors.reset}`);
-          } else if (poolChoice === '2') {
-            poolType = 'event';
-            console.log(`${colors.fg.green}✓ Event pool selected${colors.reset}`);
-          } else {
-            console.log(`${colors.fg.yellow}Invalid choice. Defaulting to community pool...${colors.reset}`);
-            poolType = 'community';
-          }
-        }
-        
-        // For event pools, gather required information
-        if (poolType === 'event') {
-          if (!eventPoolName) {
-            eventPoolName = await askQuestion("Enter a name for your event pool: ");
-          }
-          
-          if (!eventPoolPassword) {
-            // Using a simple approach for password input without masking for compatibility
-            eventPoolPassword = await askQuestion("Enter a password for your event pool: ");
-          }
-          
-          if (!userIdentifier) {
-            userIdentifier = await askQuestion("Enter your unique identifier (email/username): ");
-          }
-          
-          console.log(`${colors.fg.green}✓ Using event pool: ${colors.reset}${eventPoolName}`);
-        } else {
-          console.log(`${colors.fg.green}✓ Using community pool${colors.reset}`);
-        }
-        
-        // Now proceed with the upload process
-        const zipPath = path.join(process.cwd(), 'deploy.zip');
-        console.log(`\n${colors.fg.blue}Zipping folder...${colors.reset}`);
-        await zipFolder(deployFolder, zipPath);
-      
-        console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
-        const form = new FormData();
-        form.append('zip', fs.createReadStream(zipPath));
-        form.append('poolType', poolType);
-        
-        // Add event pool details if applicable
-        if (poolType === 'event') {
-          form.append('eventPoolName', eventPoolName);
-          form.append('eventPoolPassword', eventPoolPassword);
-          form.append('userIdentifier', userIdentifier);
-        }
-        
-        // Show upload progress animation
-        let uploadProgress = 0;
-        const progressInterval = setInterval(() => {
-          uploadProgress += Math.random() * 5;
-          if (uploadProgress > 95) uploadProgress = 95;
-          showProgress("Uploading to sponsor server", uploadProgress/100);
-        }, 200);
-        
-        const API_KEY = 'deploy-api-key-123'; // API key for deployer
-        try {
-          const response = await axios.post('http://localhost:3000/upload', form, {
-            headers: {
-              ...form.getHeaders(),
-              'X-API-Key': API_KEY
-            },
-          });
-          
-          // Clear progress and show 100%
-          clearInterval(progressInterval);
-          showProgress("Uploading to sponsor server", 1.0);
-          
-          manifestId = response.data.manifestId;
-          
-          // Show deployment pool information
-          if (response.data.deployedBy) {
-            console.log(`${colors.fg.green}✓ Deployed by: ${colors.reset}${response.data.deployedBy}`);
-          }
-        } catch (error) {
-          clearInterval(progressInterval);
-          console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
-          throw error;
-        } finally {
-          fs.unlinkSync(zipPath);
-        }
-        console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
       }
       console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
     } else {
