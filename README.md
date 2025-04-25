@@ -1,4 +1,4 @@
-# NITYA - Arweave Deployment Tool
+# NITYA - Arweave Deployment Protocol
 
 NITYA is a tool for permanently deploying web applications and onboarding users to the decentralized Arweave network. This README provides step-by-step instructions to set up and deploy your project using NITYA, including details on pool-based deployments for larger files.
 
