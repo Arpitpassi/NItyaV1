@@ -19,7 +19,6 @@ const colors = {
   dim: "\x1b[2m",
   underscore: "\x1b[4m",
   blink: "\x1b[5m",
-  
   fg: {
     black: "\x1b[30m",
     red: "\x1b[31m",
@@ -119,6 +118,29 @@ function getFolderSizeInKB(directoryPath) {
   return totalSize / 1024; // Convert bytes to KB
 }
 
+// Function to select pool type
+async function selectPoolType() {
+  console.log(`\n${colors.bright}${colors.fg.yellow}╔════ POOL SELECTION ════╗${colors.reset}`);
+  console.log(`${colors.fg.cyan}Please select your pool type:${colors.reset}`);
+  console.log(`${colors.fg.white}1. Community pool deployment${colors.reset}`);
+  console.log(`${colors.fg.white}2. Event pool deployment${colors.reset}`);
+  const choice = await askQuestion('Enter your choice (1 or 2): ');
+  
+  if (choice === '1') {
+    console.log(`${colors.fg.green}✓ Community pool selected${colors.reset}`);
+    return { poolType: 'community' };
+  } else if (choice === '2') {
+    console.log(`${colors.fg.green}✓ Event pool selected${colors.reset}`);
+    const eventPoolName = await askQuestion('Enter the name of your event pool: ');
+    const eventPoolPassword = await askQuestion('Enter the password for your event pool: ');
+    console.log(`${colors.fg.green}✓ Event pool '${eventPoolName}' configured${colors.reset}`);
+    return { poolType: 'event', eventPoolName, eventPoolPassword };
+  } else {
+    console.error(`${colors.fg.red}Invalid choice. Defaulting to community pool.${colors.reset}`);
+    return { poolType: 'community' };
+  }
+}
+
 async function main() {
   // First, load config from file if it exists
   let config = {};
@@ -164,7 +186,7 @@ async function main() {
       description: 'Network for Ethereum-based signers.',
       choices: ['ethereum', 'polygon'],
     }).argv;
-
+   
   // Priority: config first, then command line args as override
   const deployFolder = path.resolve(process.cwd(), 
     config.deployFolder || argv['deploy-folder'] || 'dist');
@@ -307,11 +329,14 @@ async function main() {
     if (useSponsorPool) {
       console.log(`${colors.fg.blue}Switching to sponsor server for upload${colors.reset}`);
       
-      // Only check sponsor configuration if we're actually going to use it
-      const sponsorConfigDir = path.join(process.env.HOME, '.permaweb', 'sponsor');
+      // Select pool type
+      const poolConfig = await selectPoolType();
+      
+      // Check sponsor configuration
+      const sponsorConfigDir = path.join(process.env.HOME, '.nitya', 'sponsor');
       const sponsorConfigPath = path.join(sponsorConfigDir, 'config.json');
       if (!fs.existsSync(sponsorConfigPath)) {
-        console.error(`${colors.fg.red}Sponsor wallet not configured. Please run perma-sponsor-setup.sh.${colors.reset}`);
+        console.error(`${colors.fg.red}Sponsor wallet not configured. Please run nitya-setup.${colors.reset}`);
         process.exit(1);
       }
       const sponsorConfig = JSON.parse(fs.readFileSync(sponsorConfigPath, 'utf-8'));
@@ -327,6 +352,11 @@ async function main() {
       console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
       const form = new FormData();
       form.append('zip', fs.createReadStream(zipPath));
+      form.append('poolType', poolConfig.poolType);
+      if (poolConfig.poolType === 'event') {
+        form.append('eventPoolName', poolConfig.eventPoolName);
+        form.append('eventPoolPassword', poolConfig.eventPoolPassword);
+      }
       const API_KEY = 'deploy-api-key-123'; // API key for deployer
       try {
         const response = await axios.post('http://localhost:3000/upload', form, {
@@ -388,6 +418,12 @@ async function main() {
       console.log(`${colors.fg.blue}Updating ANT process:${colors.reset} ${antProcess}`);
       console.log(`${colors.fg.blue}Undername:${colors.reset} ${undername}`);
       
+      // Validate manifestId
+      if (!manifestId || typeof manifestId !== 'string' || manifestId.length !== 43) {
+        console.error(`${colors.fg.red}✗ Invalid manifest ID: ${manifestId}. Cannot update ANT record.${colors.reset}`);
+        throw new Error('Invalid manifest ID');
+      }
+
       const ant = ANT.init({ processId: antProcess, signer });
       const commitHash = getCommitHash();
       
@@ -397,31 +433,36 @@ async function main() {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      // Update the ANT record (assumes the signer is a controller or owner)
-      await ant.setUndernameRecord(
-        {
-          undername: undername,
-          transactionId: manifestId,
-          ttlSeconds: 3600,
-        },
-        {
-          tags: [
-            {
-              name: 'GIT-HASH',
-              value: commitHash || '',
-            },
-            {
-              name: 'App-Name',
-              value: 'PermaDeploy',
-            },
-            {
-              name: 'anchor',
-              value: new Date().toISOString(),
-            },
-          ],
-        }
-      );
-      console.log(`${colors.fg.green}✓ Updated ANT record for process ${antProcess} with undername ${undername}${colors.reset}`);
+      // Update the ANT record with error handling
+      try {
+        await ant.setUndernameRecord(
+          {
+            undername: undername,
+            transactionId: manifestId,
+            ttlSeconds: 3600,
+          },
+          {
+            tags: [
+              {
+                name: 'GIT-HASH',
+                value: commitHash || '',
+              },
+              {
+                name: 'App-Name',
+                value: 'PermaDeploy',
+              },
+              {
+                name: 'anchor',
+                value: new Date().toISOString(),
+              },
+            ],
+          }
+        );
+        console.log(`${colors.fg.green}✓ Updated ANT record for process ${antProcess} with undername ${undername}${colors.reset}`);
+      } catch (antError) {
+        console.error(`${colors.fg.red}✗ Failed to update ANT record: ${antError.message}${colors.reset}`);
+        throw antError;
+      }
     }
     
     console.log(`\n${colors.bright}${colors.fg.green}╔════ DEPLOYMENT SUCCESSFUL! ════╗${colors.reset}`);
