@@ -163,8 +163,28 @@ async function main() {
       type: 'string',
       description: 'Network for Ethereum-based signers.',
       choices: ['ethereum', 'polygon'],
-    }).argv;
 
+    })
+
+      .option('pool-type', {
+        type: 'string',
+        description: 'Type of pool to use for deployment',
+        choices: ['community', 'event'],
+        default: 'community'
+      })
+      .option('event-pool-name', {
+        type: 'string',
+        description: 'Name of the event pool (required for event pool deployment)'
+      })
+    .option('event-pool-password', {
+      type: 'string',
+      description: 'Password for the event pool (required for event pool deployment)'
+    })
+    .option('user-identifier', {
+      type: 'string',
+      description: 'Unique identifier for the user (required for event pool deployment)'
+    }).argv;
+   
   // Priority: config first, then command line args as override
   const deployFolder = path.resolve(process.cwd(), 
     config.deployFolder || argv['deploy-folder'] || 'dist');
@@ -314,19 +334,48 @@ async function main() {
         console.error(`${colors.fg.red}Sponsor wallet not configured. Please run perma-sponsor-setup.sh.${colors.reset}`);
         process.exit(1);
       }
-      const sponsorConfig = JSON.parse(fs.readFileSync(sponsorConfigPath, 'utf-8'));
-      if (!sponsorConfig.sponsorWalletPath || !fs.existsSync(sponsorConfig.sponsorWalletPath)) {
-        console.error(`${colors.fg.red}Sponsor wallet keyfile not found at ${sponsorConfig.sponsorWalletPath}.${colors.reset}`);
-        process.exit(1);
+      
+      // Handle pool type selection
+      const poolType = argv['pool-type'] || 'community';
+      let eventPoolName = argv['event-pool-name'];
+      let eventPoolPassword = argv['event-pool-password'];
+      let userIdentifier = argv['user-identifier'];
+      
+      if (poolType === 'event') {
+        // If event pool is selected but details are missing, prompt for them
+        if (!eventPoolName) {
+          eventPoolName = await askQuestion('Enter the event pool name: ');
+        }
+        
+        if (!eventPoolPassword) {
+          eventPoolPassword = await askQuestion('Enter the event pool password: ');
+        }
+        
+        if (!userIdentifier) {
+          userIdentifier = await askQuestion('Enter your unique identifier (email/username): ');
+        }
+        
+        console.log(`${colors.fg.blue}Using event pool: ${colors.reset}${eventPoolName}`);
+      } else {
+        console.log(`${colors.fg.blue}Using community pool${colors.reset}`);
       }
       
       const zipPath = path.join(process.cwd(), 'deploy.zip');
       console.log(`${colors.fg.blue}Zipping folder...${colors.reset}`);
       await zipFolder(deployFolder, zipPath);
-
+    
       console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
       const form = new FormData();
       form.append('zip', fs.createReadStream(zipPath));
+      form.append('poolType', poolType);
+      
+      // Add event pool details if applicable
+      if (poolType === 'event') {
+        form.append('eventPoolName', eventPoolName);
+        form.append('eventPoolPassword', eventPoolPassword);
+        form.append('userIdentifier', userIdentifier);
+      }
+      
       const API_KEY = 'deploy-api-key-123'; // API key for deployer
       try {
         const response = await axios.post('http://localhost:3000/upload', form, {
@@ -336,6 +385,11 @@ async function main() {
           },
         });
         manifestId = response.data.manifestId;
+        
+        // Show deployment pool information
+        if (response.data.deployedBy) {
+          console.log(`${colors.fg.green}✓ Deployed by: ${colors.reset}${response.data.deployedBy}`);
+        }
       } catch (error) {
         console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
         throw error;
