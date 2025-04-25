@@ -100,7 +100,7 @@ async function generateCommand() {
     const undername = document.getElementById('undername').value || '';
 
     // Build the initialization command
-    let initCommand = 'npx perma-deploy-init';
+    let initCommand = 'npx perma-init';
     if (projectName) initCommand += ` --project-name "${projectName}"`;
     if (buildCommand) initCommand += ` --install "${installCommand}"`;
     if (buildCommand) initCommand += ` --build "${buildCommand}"`;

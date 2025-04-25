@@ -1,6 +1,6 @@
 {
   "name": "nitya",
-  "version": "0.0.20",
+  "version": "0.0.23",
   "description": "Cli tool for permaweb deploy using Nitya.",
   "type": "module",
   "bin": {
@@ -35,6 +35,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Arpitpassi/perma-deployV1"
+    "url": "https://github.com/Arpitpassi/NityaV1"
   }
 }

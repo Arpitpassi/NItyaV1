@@ -305,7 +305,7 @@ async function main() {
       // Add deploy script
       if (!packageJson.scripts) packageJson.scripts = {};
       
-      let deployCommand = 'perma-deploy-deploy';
+      let deployCommand = 'perma-deploy';
       if (argv['ant-process']) {
         deployCommand += ` --ant-process ${argv['ant-process']}`;
       }
