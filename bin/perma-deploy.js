@@ -119,9 +119,6 @@ function getFolderSizeInKB(directoryPath) {
   return totalSize / 1024; // Convert bytes to KB
 }
 
-// Modified section for sponsor pool logic based on file size and balance
-// ...other code remains the same...
-
 async function main() {
   // First, load config from file if it exists
   let config = {};
@@ -166,18 +163,6 @@ async function main() {
       type: 'string',
       description: 'Network for Ethereum-based signers.',
       choices: ['ethereum', 'polygon'],
-    })
-    .option('server-url', {
-      alias: 's',
-      type: 'string',
-      description: 'URL of the sponsor/deployment server.',
-      default: 'http://localhost:3000/upload'
-    })
-    .option('api-key', {
-      alias: 'k',
-      type: 'string',
-      description: 'API key for the sponsor/deployment server.',
-      default: 'deploy-api-key-123'
     }).argv;
 
   // Priority: config first, then command line args as override
@@ -189,8 +174,6 @@ async function main() {
   const network = config.network || argv['network'] || 'arweave';
   const buildCommand = config.buildCommand || 'npm run build';
   const deployBranch = config.deployBranch || 'main';
-  const serverUrl = config.serverUrl || argv['server-url'];
-  const apiKey = config.apiKey || argv['api-key'];
 
   // Display configuration
   console.log(`\n${colors.bright}${colors.fg.yellow}╔════ DEPLOYMENT CONFIGURATION ════╗${colors.reset}`);
@@ -200,7 +183,6 @@ async function main() {
   if (antProcess) console.log(`${colors.fg.cyan}● ANT Process:${colors.reset} ${antProcess}`);
   if (undername) console.log(`${colors.fg.cyan}● Undername:${colors.reset} ${undername}`);
   if (network) console.log(`${colors.fg.cyan}● Network:${colors.reset} ${network}`);
-  console.log(`${colors.fg.cyan}● Server URL:${colors.reset} ${serverUrl}`);
 
   // Get the DEPLOY_KEY from environment variable or config file
   let DEPLOY_KEY = process.env.DEPLOY_KEY;
@@ -308,17 +290,60 @@ async function main() {
     const folderSizeKB = getFolderSizeInKB(deployFolder);
     console.log(`${colors.fg.blue}Folder size:${colors.reset} ${folderSizeKB.toFixed(2)} KB`);
     
-    // Always attempt direct upload first if folder size < 100KB
-    let useDirectUpload = true;
+    // Decision based on folder size
+    let useDirectUpload = folderSizeKB < 100;
     let useSponsorPool = false;
-    let manifestId;
     
-    // Only handle sponsor pool as fallback for insufficient balance
-    if (folderSizeKB >= 100) {
-      console.log(`${colors.fg.yellow}Folder size exceeds 100KB. Will attempt direct upload first.${colors.reset}`);
+    if (!useDirectUpload) {
+      // Prompt user to choose sponsor pool or direct upload
+      const answer = await askQuestion('Folder size exceeds 100KB. Do you want to use the sponsor pool for deployment? (y/n): ');
+      useSponsorPool = answer.toLowerCase() === 'y';
+      useDirectUpload = !useSponsorPool;
+    } else {
+      console.log(`${colors.fg.green}✓ Folder size is less than 100KB. Using direct upload without balance check.${colors.reset}`);
     }
-    
-    try {
+
+    let manifestId;
+    if (useSponsorPool) {
+      console.log(`${colors.fg.blue}Switching to sponsor server for upload${colors.reset}`);
+      
+      // Only check sponsor configuration if we're actually going to use it
+      const sponsorConfigDir = path.join(process.env.HOME, '.permaweb', 'sponsor');
+      const sponsorConfigPath = path.join(sponsorConfigDir, 'config.json');
+      if (!fs.existsSync(sponsorConfigPath)) {
+        console.error(`${colors.fg.red}Sponsor wallet not configured. Please run perma-sponsor-setup.sh.${colors.reset}`);
+        process.exit(1);
+      }
+      const sponsorConfig = JSON.parse(fs.readFileSync(sponsorConfigPath, 'utf-8'));
+      if (!sponsorConfig.sponsorWalletPath || !fs.existsSync(sponsorConfig.sponsorWalletPath)) {
+        console.error(`${colors.fg.red}Sponsor wallet keyfile not found at ${sponsorConfig.sponsorWalletPath}.${colors.reset}`);
+        process.exit(1);
+      }
+      
+      const zipPath = path.join(process.cwd(), 'deploy.zip');
+      console.log(`${colors.fg.blue}Zipping folder...${colors.reset}`);
+      await zipFolder(deployFolder, zipPath);
+
+      console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
+      const form = new FormData();
+      form.append('zip', fs.createReadStream(zipPath));
+      const API_KEY = 'deploy-api-key-123'; // API key for deployer
+      try {
+        const response = await axios.post('http://localhost:3000/upload', form, {
+          headers: {
+            ...form.getHeaders(),
+            'X-API-Key': API_KEY
+          },
+        });
+        manifestId = response.data.manifestId;
+      } catch (error) {
+        console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
+        throw error;
+      } finally {
+        fs.unlinkSync(zipPath);
+      }
+      console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
+    } else {
       console.log(`${colors.fg.blue}Using project wallet for direct upload from ${walletSource}${colors.reset}`);
       console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPLOADING TO ARWEAVE ════╗${colors.reset}`);
       
@@ -354,51 +379,7 @@ async function main() {
       showProgress("Uploading to Arweave", 1.0);
 
       manifestId = uploadResult.manifestResponse.id;
-      console.log(`${colors.fg.green}✓ Manifest uploaded with ID: ${manifestId}${colors.reset}`);
-      
-    } catch (error) {
-      // Only offer sponsor pool as fallback if direct upload fails AND folder size >= 100KB
-      if (folderSizeKB >= 100 && 
-         (error.message.includes('insufficient balance') || error.message.includes('balance too low'))) {
-        
-        console.log(`${colors.fg.yellow}Direct upload failed due to insufficient balance.${colors.reset}`);
-        
-        const answer = await askQuestion('Do you want to use the sponsor pool for deployment instead? (y/n): ');
-        useSponsorPool = answer.toLowerCase() === 'y';
-        
-        if (!useSponsorPool) {
-          console.error(`${colors.fg.red}✗ Deployment aborted by user.${colors.reset}`);
-          process.exit(1);
-        }
-        
-        console.log(`${colors.fg.blue}Switching to sponsor server for upload${colors.reset}`);
-        const zipPath = path.join(process.cwd(), 'deploy.zip');
-        console.log(`${colors.fg.blue}Zipping folder...${colors.reset}`);
-        await zipFolder(deployFolder, zipPath);
-
-        console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
-        const form = new FormData();
-        form.append('zip', fs.createReadStream(zipPath));
-        
-        try {
-          const response = await axios.post(serverUrl, form, {
-            headers: {
-              ...form.getHeaders(),
-              'X-API-Key': apiKey
-            },
-          });
-          manifestId = response.data.manifestId;
-          console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
-        } catch (serverError) {
-          console.error(`${colors.fg.red}Sponsor server error: ${serverError.response?.data?.error || serverError.message}${colors.reset}`);
-          throw serverError;
-        } finally {
-          fs.unlinkSync(zipPath);
-        }
-      } else {
-        // If error is not about insufficient balance or folder is small, just throw the original error
-        throw error;
-      }
+      console.log(`${colors.fg.green}✓ Manifest uploaded with ID:${colors.reset}`);
     }
     
     // Update ANT record if applicable
