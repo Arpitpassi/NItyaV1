@@ -1,6 +1,6 @@
 {
   "name": "nitya",
-  "version": "0.0.29",
+  "version": "0.0.30",
   "description": "Cli tool for permaweb deploy using Nitya.",
   "type": "module",
   "bin": {
