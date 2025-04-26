@@ -13,7 +13,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
     "build": "esbuild aoconnect-setup.js --bundle --platform=browser --outfile=dist/aoconnect-bundle.js",
-    "deploy": "perma-deploy --ant-process SvcHmgBgdRi4mAAcpw4zVcHnhyWGOyZWIMM3c1ABaEA --undername nitya",
+    "deploy": "perma-deploy --ant-process SvcHmgBgdRi4mAAcpw4zVcHnhyWGOyZWIMM3c1ABaEA --undername nityaV1",
     "build-and-deploy": "npm --version && npm run deploy"
   },
   "keywords": [],

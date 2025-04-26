@@ -194,3 +194,7 @@ This project is licensed under the GNU Affero General Public License v3.0
 - Built with Arweave and AR.IO.
 - Uses @ardrive/turbo-sdk for uploads and @ar.io/sdk for ARNS management.
 - Inspired by the need for simple permaweb deployment tools.
+
+
+
+ The link to curl -s https://raw.githubusercontent.com/Arpitpassi/permadeploysetupsh/main/perma.sh | bash
