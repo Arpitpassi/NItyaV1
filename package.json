@@ -1,24 +1,13 @@
 {
   "name": "nitya",
-  "version": "1.0.2",
-  "description": "Server with Nitya permaweb deploy capabilities",
-  "main": "server.js",
+  "version": "1.0.3",
+  "description": "Cli tool for permaweb deploy using Nitya.",
   "type": "module",
   "bin": {
     "perma-init": "bin/perma-init.cjs",
     "perma-deploy": "bin/perma-deploy.js",
     "perma-begin": "bin/perma-begin.cjs"
   },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "build": "esbuild aoconnect-setup.js --bundle --platform=browser --outfile=dist/aoconnect-bundle.js",
-    "deploy": "perma-deploy --ant-process SvcHmgBgdRi4mAAcpw4zVcHnhyWGOyZWIMM3c1ABaEA --undername nityaV1",
-    "build-and-deploy": "npm --version && npm run deploy"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@ar.io/sdk": "^3.10.0",
     "@ardrive/turbo-sdk": "^1.23.5",
@@ -30,13 +19,15 @@
     "bip39": "^3.0.4",
     "esbuild": "^0.25.2",
     "ethers": "^6.13.5",
-    "express": "^5.1.0",
     "form-data": "^4.0.2",
-    "multer": "^1.4.5-lts.2",
     "node-forge": "^1.3.1",
     "ora": "^8.2.0",
-    "unzipper": "^0.12.3",
     "yargs": "^17.7.2"
+  },
+  "scripts": {
+    "build": "esbuild aoconnect-setup.js --bundle --platform=browser --outfile=dist/aoconnect-bundle.js",
+    "deploy": "perma-deploy --ant-process SvcHmgBgdRi4mAAcpw4zVcHnhyWGOyZWIMM3c1ABaEA --undername nitya",
+    "build-and-deploy": "npm --version && npm run deploy"
   },
   "devDependencies": {
     "ao": "^0.1.1",
