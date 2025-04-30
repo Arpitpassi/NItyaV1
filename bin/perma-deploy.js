@@ -141,36 +141,6 @@ async function selectPoolType() {
   }
 }
 
-// Function to load sponsor server configuration
-function loadSponsorConfig() {
-  // Standardize on .nitya directory structure to match the wallet setup script
-  const SPONSOR_DIR = path.join(process.env.HOME, '.nitya', 'sponsor');
-  const CONFIG_PATH = path.join(SPONSOR_DIR, 'config.json');
-  
-  if (!fs.existsSync(CONFIG_PATH)) {
-    console.error(`${colors.fg.red}Sponsor configuration not found at ${CONFIG_PATH}${colors.reset}`);
-    console.error(`${colors.fg.yellow}Please run the setup script first: nitya-setup${colors.reset}`);
-    process.exit(1);
-  }
-  
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-  } catch (error) {
-    console.error(`${colors.fg.red}Error reading sponsor config: ${error.message}${colors.reset}`);
-    process.exit(1);
-  }
-}
-
-// Function to check sponsor server status
-async function checkSponsorServer(url = 'http://localhost:3000') {
-  try {
-    const response = await axios.get(url, { timeout: 3000 });
-    return response.status === 200;
-  } catch (error) {
-    return false;
-  }
-}
-
 async function main() {
   // First, load config from file if it exists
   let config = {};
@@ -179,11 +149,8 @@ async function main() {
   
   if (useConfigFile) {
     try {
-      const configPath = path.join(permaDeployDir, 'config.json');
-      if (fs.existsSync(configPath)) {
-        config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-        console.log(`${colors.fg.blue}Using configuration from .perma-deploy/config.json${colors.reset}`);
-      }
+      config = JSON.parse(fs.readFileSync(path.join(permaDeployDir, 'config.json'), 'utf-8'));
+      console.log(`${colors.fg.blue}Using configuration from .perma-deploy/config.json${colors.reset}`);
     } catch (error) {
       console.error(`${colors.fg.red}Error reading config file: ${error.message}${colors.reset}`);
       process.exit(1);
@@ -218,53 +185,26 @@ async function main() {
       type: 'string',
       description: 'Network for Ethereum-based signers.',
       choices: ['ethereum', 'polygon'],
-    })
-    .option('server-url', {
-      alias: 's',
-      type: 'string',
-      description: 'URL of the sponsor server.',
-      default: 'http://localhost:3000'
-    })
-    .option('force-sponsor', {
-      alias: 'f',
-      type: 'boolean',
-      default: false,
-      description: 'Force using sponsor pool regardless of size'
     }).argv;
    
   // Priority: config first, then command line args as override
   const deployFolder = path.resolve(process.cwd(), 
-    argv['deploy-folder'] || config.deployFolder || 'dist');
-  const dryRun = argv['dry-run'] || config.dryRun || false;
-  const antProcess = argv['ant-process'] || config.antProcess;
-  const undername = argv['undername'] || config.undername || '@';
-  const network = argv['network'] || config.network || 'arweave';
+    config.deployFolder || argv['deploy-folder'] || 'dist');
+  const dryRun = config.dryRun !== undefined ? config.dryRun : argv['dry-run'] || false;
+  const antProcess = config.antProcess || argv['ant-process'];
+  const undername = config.undername || argv['undername'] || '@';
+  const network = config.network || argv['network'] || 'arweave';
   const buildCommand = config.buildCommand || 'npm run build';
   const deployBranch = config.deployBranch || 'main';
-  const serverUrl = argv['server-url'] || config.serverUrl || 'http://localhost:3000';
-  const forceSponsor = argv['force-sponsor'] || config.forceSponsor || false;
 
   // Display configuration
   console.log(`\n${colors.bright}${colors.fg.yellow}╔════ DEPLOYMENT CONFIGURATION ════╗${colors.reset}`);
   console.log(`${colors.fg.cyan}● Deploy Folder:${colors.reset} ${deployFolder}`);
   console.log(`${colors.fg.cyan}● Dry Run:${colors.reset} ${dryRun ? 'Yes' : 'No'}`);
-  console.log(`${colors.fg.cyan}● Server URL:${colors.reset} ${serverUrl}`);
   
   if (antProcess) console.log(`${colors.fg.cyan}● ANT Process:${colors.reset} ${antProcess}`);
   if (undername) console.log(`${colors.fg.cyan}● Undername:${colors.reset} ${undername}`);
   if (network) console.log(`${colors.fg.cyan}● Network:${colors.reset} ${network}`);
-
-  // Sponsor server availability check
-  const sponsorServerAvailable = await checkSponsorServer(serverUrl);
-  if (!sponsorServerAvailable) {
-    console.warn(`${colors.fg.yellow}Warning: Sponsor server not available at ${serverUrl}${colors.reset}`);
-    if (forceSponsor) {
-      console.error(`${colors.fg.red}Cannot continue with force-sponsor when server is not available${colors.reset}`);
-      process.exit(1);
-    }
-  } else {
-    console.log(`${colors.fg.green}✓ Sponsor server available at ${serverUrl}${colors.reset}`);
-  }
 
   // Get the DEPLOY_KEY from environment variable or config file
   let DEPLOY_KEY = process.env.DEPLOY_KEY;
@@ -279,11 +219,8 @@ async function main() {
       process.exit(1);
     }
   }
-  
-  // If no deploy key and not using sponsor, we need one
-  if (!DEPLOY_KEY && !sponsorServerAvailable && !forceSponsor) {
+  if (!DEPLOY_KEY) {
     console.error(`${colors.fg.red}DEPLOY_KEY environment variable or walletPath not configured${colors.reset}`);
-    console.error(`${colors.fg.yellow}To use sponsor server, make sure it's running or set up with nitya-setup${colors.reset}`);
     process.exit(1);
   }
 
@@ -294,10 +231,10 @@ async function main() {
     currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
     console.log(`${colors.fg.blue}Current branch:${colors.reset} ${currentBranch}`);
   } catch (error) {
-    console.warn(`${colors.fg.yellow}Warning: Not a git repository or no commits found. Skipping branch check.${colors.reset}`);
+    console.warn(`${colors.fg.yellow}Warning: No commits found. Skipping branch check.${colors.reset}`);
   }
 
-  if (currentBranch && deployBranch && currentBranch !== deployBranch) {
+  if (currentBranch && currentBranch !== deployBranch) {
     console.log(`${colors.fg.yellow}Not on deployment branch (${deployBranch}), skipping deployment.${colors.reset}`);
     process.exit(0);
   }
@@ -336,57 +273,83 @@ async function main() {
   console.log(`\n${colors.bright}${colors.fg.yellow}╔════ PREPARING DEPLOYMENT ════╗${colors.reset}`);
   
   try {
-    let signer = null;
-    let token = null;
-    let useSponsorPool = forceSponsor;
-    let manifestId = null;
+    let signer;
+    let token;
 
-    // Check folder size for deployment method decision
-    if (!useSponsorPool && sponsorServerAvailable) {
-      const folderSizeKB = getFolderSizeInKB(deployFolder);
-      console.log(`${colors.fg.blue}Folder size:${colors.reset} ${folderSizeKB.toFixed(2)} KB`);
+    // Infer signer type based on DEPLOY_KEY
+    try {
+      // Try to parse as JSON for Arweave
+      const parsedKey = JSON.parse(DEPLOY_KEY);
       
-      // Size threshold for sponsor pool consideration
-      if (folderSizeKB >= 100) {
-        const answer = await askQuestion('Folder size exceeds 100KB. Do you want to use the sponsor pool? (y/n): ');
-        useSponsorPool = answer.toLowerCase() === 'y';
+      // Check if it has typical Arweave JWK fields
+      if (parsedKey.n && parsedKey.d) {
+        signer = new ArweaveSigner(parsedKey);
+        token = 'arweave';
+        console.log(`${colors.fg.green}✓ Using Arweave JWK wallet${colors.reset}`);
       } else {
-        console.log(`${colors.fg.green}✓ Folder size is less than 100KB. Direct upload without sponsor is recommended.${colors.reset}`);
-        if (!forceSponsor) {
-          const answer = await askQuestion('Would you still like to use the sponsor pool? (y/n): ');
-          useSponsorPool = answer.toLowerCase() === 'y';
-        }
+        throw new Error('Parsed JSON does not appear to be a valid Arweave key');
       }
-    } else if (forceSponsor) {
-      console.log(`${colors.fg.blue}Force sponsor option selected. Using sponsor pool.${colors.reset}`);
+    } catch (e) {
+      // Not JSON, assume it's an Ethereum/Polygon private key
+      if (/^(0x)?[0-9a-fA-F]{64}$/.test(DEPLOY_KEY)) {
+        signer = new EthereumSigner(DEPLOY_KEY);
+        token = network === 'polygon' ? 'pol' : 'ethereum';
+        console.log(`${colors.fg.green}✓ Using ${network} wallet${colors.reset}`);
+      } else {
+        throw new Error('DEPLOY_KEY is not a valid Ethereum private key or Arweave wallet JSON');
+      }
     }
 
-    // Process based on deployment method
-    if (useSponsorPool && sponsorServerAvailable) {
-      console.log(`${colors.fg.blue}Using sponsor server for deployment${colors.reset}`);
+    console.log(`${colors.fg.blue}Deploying folder:${colors.reset} ${deployFolder}`);
+
+    // Initialize TurboFactory with signer and token
+    const turbo = TurboFactory.authenticated({
+      signer: signer,
+      token: token,
+    });
+
+    // Check folder size
+    const folderSizeKB = getFolderSizeInKB(deployFolder);
+    console.log(`${colors.fg.blue}Folder size:${colors.reset} ${folderSizeKB.toFixed(2)} KB`);
+    
+    // Decision based on folder size
+    let useDirectUpload = folderSizeKB < 100;
+    let useSponsorPool = false;
+    
+    if (!useDirectUpload) {
+      // Prompt user to choose sponsor pool or direct upload
+      const answer = await askQuestion('Folder size exceeds 100KB. Do you want to use the sponsor pool for deployment? (y/n): ');
+      useSponsorPool = answer.toLowerCase() === 'y';
+      useDirectUpload = !useSponsorPool;
+    } else {
+      console.log(`${colors.fg.green}✓ Folder size is less than 100KB. Using direct upload without balance check.${colors.reset}`);
+    }
+
+    let manifestId;
+    if (useSponsorPool) {
+      console.log(`${colors.fg.blue}Switching to sponsor server for upload${colors.reset}`);
       
       // Select pool type
       const poolConfig = await selectPoolType();
       
       // Check sponsor configuration
-      try {
-        const sponsorConfig = loadSponsorConfig();
-        console.log(`${colors.fg.green}✓ Sponsor configuration loaded${colors.reset}`);
-      } catch (configError) {
-        console.warn(`${colors.fg.yellow}Sponsor configuration not found, proceeding with defaults${colors.reset}`);
+      const sponsorConfigDir = path.join(process.env.HOME, '.nitya', 'sponsor');
+      const sponsorConfigPath = path.join(sponsorConfigDir, 'config.json');
+      if (!fs.existsSync(sponsorConfigPath)) {
+        console.error(`${colors.fg.red}Sponsor wallet not configured. Please run nitya-setup.${colors.reset}`);
+        process.exit(1);
+      }
+      const sponsorConfig = JSON.parse(fs.readFileSync(sponsorConfigPath, 'utf-8'));
+      if (!sponsorConfig.sponsorWalletPath || !fs.existsSync(sponsorConfig.sponsorWalletPath)) {
+        console.error(`${colors.fg.red}Sponsor wallet keyfile not found at ${sponsorConfig.sponsorWalletPath}.${colors.reset}`);
+        process.exit(1);
       }
       
-      // Prepare the ZIP file
-      console.log(`${colors.fg.blue}Preparing deployment package...${colors.reset}`);
       const zipPath = path.join(process.cwd(), 'deploy.zip');
-      
-      // Show progress bar while zipping
-      showProgress("Zipping folder", 0);
+      console.log(`${colors.fg.blue}Zipping folder...${colors.reset}`);
       await zipFolder(deployFolder, zipPath);
-      showProgress("Zipping folder", 1);
-      
-      // Upload to sponsor server with API key
-      console.log(`${colors.fg.blue}Uploading to sponsor server...${colors.reset}`);
+
+      console.log(`${colors.fg.blue}Sending to sponsor server...${colors.reset}`);
       const form = new FormData();
       form.append('zip', fs.createReadStream(zipPath));
       form.append('poolType', poolConfig.poolType);
@@ -394,76 +357,24 @@ async function main() {
         form.append('eventPoolName', poolConfig.eventPoolName);
         form.append('eventPoolPassword', poolConfig.eventPoolPassword);
       }
-      
-      // The API key should match what's in the server (deploy-api-key-123)
-      const API_KEY = 'deploy-api-key-123';
-      
+      const API_KEY = 'deploy-api-key-123'; // API key for deployer
       try {
-        // Show progress bar while uploading
-        let uploadProgress = 0;
-        const progressInterval = setInterval(() => {
-          uploadProgress += 0.05;
-          if (uploadProgress > 0.95) {
-            uploadProgress = 0.95;
-            clearInterval(progressInterval);
-          }
-          showProgress("Uploading to sponsor server", uploadProgress);
-        }, 300);
-        
-        const response = await axios.post(`${serverUrl}/upload`, form, {
+        const response = await axios.post('http://localhost:3000/upload', form, {
           headers: {
             ...form.getHeaders(),
             'X-API-Key': API_KEY
           },
         });
-        
-        clearInterval(progressInterval);
-        showProgress("Uploading to sponsor server", 1);
-        
         manifestId = response.data.manifestId;
-        console.log(`${colors.fg.green}✓ Sponsored deployment completed with manifest ID: ${manifestId}${colors.reset}`);
       } catch (error) {
         console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
         throw error;
       } finally {
-        // Clean up zip file
-        if (fs.existsSync(zipPath)) {
-          fs.unlinkSync(zipPath);
-        }
+        fs.unlinkSync(zipPath);
       }
+      console.log(`${colors.fg.green}✓ Sponsored deployment completed${colors.reset}`);
     } else {
-      // Direct upload using wallet
-      if (!DEPLOY_KEY) {
-        console.error(`${colors.fg.red}No DEPLOY_KEY available for direct upload. Please set DEPLOY_KEY environment variable.${colors.reset}`);
-        process.exit(1);
-      }
-      
-      // Infer signer type based on DEPLOY_KEY
-      try {
-        // Try to parse as JSON for Arweave
-        const parsedKey = JSON.parse(DEPLOY_KEY);
-        
-        // Check if it has typical Arweave JWK fields
-        if (parsedKey.n && parsedKey.d) {
-          signer = new ArweaveSigner(parsedKey);
-          token = 'arweave';
-          console.log(`${colors.fg.green}✓ Using Arweave JWK wallet${colors.reset}`);
-        } else {
-          throw new Error('Parsed JSON does not appear to be a valid Arweave key');
-        }
-      } catch (e) {
-        // Not JSON, assume it's an Ethereum/Polygon private key
-        if (/^(0x)?[0-9a-fA-F]{64}$/.test(DEPLOY_KEY)) {
-          signer = new EthereumSigner(DEPLOY_KEY);
-          token = network === 'polygon' ? 'pol' : 'ethereum';
-          console.log(`${colors.fg.green}✓ Using ${network} wallet${colors.reset}`);
-        } else {
-          throw new Error('DEPLOY_KEY is not a valid Ethereum private key or Arweave wallet JSON');
-        }
-      }
-
-      console.log(`${colors.fg.blue}Deploying folder directly from wallet:${colors.reset} ${deployFolder}`);
-      console.log(`${colors.fg.blue}Wallet source:${colors.reset} ${walletSource}`);
+      console.log(`${colors.fg.blue}Using project wallet for direct upload from ${walletSource}${colors.reset}`);
       console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPLOADING TO ARWEAVE ════╗${colors.reset}`);
       
       // Simulate upload progress
@@ -476,12 +387,6 @@ async function main() {
         }
         showProgress("Uploading to Arweave", lastProgress);
       }, 300);
-
-      // Initialize TurboFactory with signer and token
-      const turbo = TurboFactory.authenticated({
-        signer: signer,
-        token: token,
-      });
 
       const uploadResult = await turbo.uploadFolder({
         folderPath: deployFolder,
@@ -504,11 +409,11 @@ async function main() {
       showProgress("Uploading to Arweave", 1.0);
 
       manifestId = uploadResult.manifestResponse.id;
-      console.log(`${colors.fg.green}✓ Manifest uploaded with ID: ${manifestId}${colors.reset}`);
+      console.log(`${colors.fg.green}✓ Manifest uploaded with ID:${colors.reset}`);
     }
     
     // Update ANT record if applicable
-    if (antProcess && (config.arnsName || undername !== '@') && signer) {
+    if (antProcess && (config.arnsName || undername !== '@')) {
       console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPDATING ANT RECORD ════╗${colors.reset}`);
       console.log(`${colors.fg.blue}Updating ANT process:${colors.reset} ${antProcess}`);
       console.log(`${colors.fg.blue}Undername:${colors.reset} ${undername}`);
@@ -558,8 +463,6 @@ async function main() {
         console.error(`${colors.fg.red}✗ Failed to update ANT record: ${antError.message}${colors.reset}`);
         throw antError;
       }
-    } else if (antProcess && !signer) {
-      console.warn(`${colors.fg.yellow}Warning: Cannot update ANT record without a wallet signer.${colors.reset}`);
     }
     
     console.log(`\n${colors.bright}${colors.fg.green}╔════ DEPLOYMENT SUCCESSFUL! ════╗${colors.reset}`);

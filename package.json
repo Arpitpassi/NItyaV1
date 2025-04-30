@@ -1,6 +1,6 @@
 {
   "name": "nitya",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Server with Nitya permaweb deploy capabilities",
   "main": "server.js",
   "type": "module",
