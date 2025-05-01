@@ -14,7 +14,7 @@ NITYA is a tool for permanently deploying web applications and onboarding users 
 1. **Install perma-deploy**: Run the following command in your project directory to install the NITYA deployment tool:
 
    ```bash
-   npm install nitya@0.0.30
+   npm install nitya@1.1.2
    ```
 
 ## Step-by-Step Setup and Deployment
