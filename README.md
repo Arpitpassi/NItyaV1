@@ -9,14 +9,13 @@ Find Nitya website at https://nitya_enginesoup.ar.io/
 - **Node.js and npm**: Ensure Node.js (v14 or higher) and npm are installed.
 - **Git**: Required for version control and automatic deployment setup. (Files up to 100KB can skip this step)
 - **Arweave Wallet**: Install the Wander wallet extension for Arweave or prepare an Ethereum/Polygon private key.
-- **Sponsor Server**: For pool-based deployments, ensure a sponsor server is running (default: `http://localhost:3000/upload`) and configured via `nitya-setup`.
 
 ## Installation
 
 1. **Install perma-deploy**: Run the following command in your project directory to install the NITYA deployment tool:
 
    ```bash
-   npm install nitya@1.1.2
+   npm install nitya@1.1.4
    ```
 
 ## Step-by-Step Setup and Deployment
@@ -114,6 +113,8 @@ Find Nitya website at https://nitya_enginesoup.ar.io/
      - Enter `y` to use a sponsor pool or `n` for direct upload.
      - If using a sponsor pool, select `1` for community pool or `2` for event pool.
      - For event pools, provide the pool name and password when prompted.
+
+     *PLEASE NOTE POOL ARCHITECTURE IS IN BETA ATM AND NOT OUT FOR PUBLIC USE*
 
 4. **Run Deploy Command**:
 
