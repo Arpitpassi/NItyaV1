@@ -11,11 +11,12 @@ import readline from 'readline';
 import archiver from 'archiver';
 import axios from 'axios';
 import FormData from 'form-data';
+import crypto from 'crypto';
 
 // ANSI colors and styling for terminal output
 const colors = {
   reset: "\x1b[0m",
-  bright: "\x1b[1m",
+  bright: "\x1b[1m  ",
   dim: "\x1b[2m",
   underscore: "\x1b[4m",
   blink: "\x1b[5m",
@@ -118,6 +119,59 @@ function getFolderSizeInKB(directoryPath) {
   return totalSize / 1024; // Convert bytes to KB
 }
 
+// Calculate SHA256 hash of a file
+function calculateFileHash(filePath) {
+  const fileBuffer = fs.readFileSync(filePath);
+  return crypto.createHash('sha256').update(fileBuffer).digest('hex');
+}
+
+// Load or create manifest
+function loadOrCreateManifest(manifestPath) {
+  if (fs.existsSync(manifestPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    } catch (error) {
+      console.warn(`${colors.fg.yellow}Warning: Could not read manifest file. Creating new one.${colors.reset}`);
+    }
+  }
+  return { files: {}, lastManifestId: null };
+}
+
+// Save manifest
+function saveManifest(manifestPath, manifestData) {
+  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+  fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2));
+  console.log(`${colors.fg.green}✓ Manifest saved to ${manifestPath}${colors.reset}`);
+}
+
+// Get all files with their relative paths and hashes
+function getAllFilesWithHashes(directoryPath) {
+  const files = [];
+  
+  function walkDir(dir, relativePath = '') {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      const relPath = path.join(relativePath, entry.name);
+      
+      if (entry.isDirectory()) {
+        walkDir(fullPath, relPath);
+      } else {
+        const hash = calculateFileHash(fullPath);
+        files.push({
+          path: relPath,
+          fullPath,
+          hash
+        });
+      }
+    }
+  }
+  
+  walkDir(directoryPath);
+  return files;
+}
+
 // Function to select pool type
 async function selectPoolType() {
   console.log(`\n${colors.bright}${colors.fg.yellow}╔════ POOL SELECTION ════╗${colors.reset}`);
@@ -143,7 +197,6 @@ async function selectPoolType() {
 
 // Function to load sponsor server configuration
 function loadSponsorConfig() {
-  // Standardize on .nitya directory structure to match the wallet setup script
   const SPONSOR_DIR = path.join(process.env.HOME, '.nitya', 'sponsor');
   const CONFIG_PATH = path.join(SPONSOR_DIR, 'config.json');
   
@@ -175,7 +228,6 @@ async function checkSponsorServer(url = 'http://localhost:3000') {
 function loadConfig() {
   let config = {};
   
-  // Check for config in multiple locations with priority
   const configLocations = [
     path.join(process.cwd(), '.perma-deploy', 'config.json'),
     path.join(process.cwd(), 'config.json'),
@@ -201,8 +253,7 @@ async function main() {
   // Load config from file
   const config = loadConfig();
   
-  // Get CLI arguments but only use them for --dry-run
-  // This allows us to run with --dry-run without changing config
+  // Get CLI arguments
   const argv = yargs(hideBin(process.argv))
     .option('dry-run', {
       type: 'boolean',
@@ -210,7 +261,6 @@ async function main() {
       description: 'Simulate deployment without uploading'
     }).argv;
   
-  // Use only config values, except for dry-run which can be overridden by CLI
   const dryRun = argv['dry-run'] || config.dryRun || false;
   const deployFolder = path.resolve(process.cwd(), config.deployFolder || 'dist');
   const antProcess = config.antProcess;
@@ -223,11 +273,16 @@ async function main() {
   const arnsName = config.arnsName || '';
   const walletPath = config.walletPath || '';
 
+  // Define manifest path in .permaweb folder
+  const permawebDir = path.join(process.cwd(), '.perma-deploy');
+  const manifestPath = path.join(permawebDir, 'manifest.json');
+
   // Display configuration
   console.log(`\n${colors.bright}${colors.fg.yellow}╔════ DEPLOYMENT CONFIGURATION ════╗${colors.reset}`);
   console.log(`${colors.fg.cyan}● Deploy Folder:${colors.reset} ${deployFolder}`);
   console.log(`${colors.fg.cyan}● Dry Run:${colors.reset} ${dryRun ? 'Yes' : 'No'}`);
   console.log(`${colors.fg.cyan}● Server URL:${colors.reset} ${serverUrl}`);
+  console.log(`${colors.fg.cyan}● Manifest Path:${colors.reset} ${manifestPath}`);
   
   if (antProcess) console.log(`${colors.fg.cyan}● ANT Process:${colors.reset} ${antProcess}`);
   if (undername) console.log(`${colors.fg.cyan}● Undername:${colors.reset} ${undername}`);
@@ -247,7 +302,7 @@ async function main() {
     console.log(`${colors.fg.green}✓ Sponsor server available at ${serverUrl}${colors.reset}`);
   }
 
-  // Get the DEPLOY_KEY from environment variable or config file
+  // Get the DEPLOY_KEY
   let DEPLOY_KEY = process.env.DEPLOY_KEY;
   let walletSource = 'environment variable DEPLOY_KEY';
   
@@ -264,7 +319,6 @@ async function main() {
     }
   }
   
-  // If no deploy key and not using sponsor, we need one
   if (!DEPLOY_KEY && !sponsorServerAvailable && !forceSponsor) {
     console.error(`${colors.fg.red}DEPLOY_KEY environment variable or walletPath not configured${colors.reset}`);
     console.error(`${colors.fg.yellow}To use sponsor server, make sure it's running or set up with nitya-setup${colors.reset}`);
@@ -302,11 +356,18 @@ async function main() {
     process.exit(1);
   }
 
+  // Load existing manifest
+  const manifest = loadOrCreateManifest(manifestPath);
+  console.log(`${colors.fg.blue}Loaded manifest from ${manifestPath}${colors.reset}`);
+
+  // Get all files with their hashes
+  const filesToUpload = getAllFilesWithHashes(deployFolder);
+  console.log(`${colors.fg.blue}Found ${filesToUpload.length} files to process${colors.reset}`);
+
   if (dryRun) {
     console.log(`\n${colors.bright}${colors.fg.yellow}╔════ DRY RUN SIMULATION ════╗${colors.reset}`);
     console.log(`${colors.fg.blue}Would deploy folder:${colors.reset} ${deployFolder}`);
     
-    // Show simulated progress
     for (let i = 0; i <= 100; i += 10) {
       showProgress("Simulating upload", i/100);
       await new Promise(resolve => setTimeout(resolve, 200));
@@ -323,14 +384,13 @@ async function main() {
     let signer = null;
     let token = null;
     let useSponsorPool = forceSponsor;
-    let manifestId = null;
+    let manifestId = manifest.lastManifestId || null;
 
     // Check folder size for deployment method decision
     if (!useSponsorPool && sponsorServerAvailable) {
       const folderSizeKB = getFolderSizeInKB(deployFolder);
       console.log(`${colors.fg.blue}Folder size:${colors.reset} ${folderSizeKB.toFixed(2)} KB`);
       
-      // Size threshold for sponsor pool consideration
       if (folderSizeKB >= 100) {
         const answer = await askQuestion('Folder size exceeds 100KB. Do you want to use the sponsor pool? (y/n): ');
         useSponsorPool = answer.toLowerCase() === 'y';
@@ -349,10 +409,8 @@ async function main() {
     if (useSponsorPool && sponsorServerAvailable) {
       console.log(`${colors.fg.blue}Using sponsor server for deployment${colors.reset}`);
       
-      // Select pool type
       const poolConfig = await selectPoolType();
       
-      // Check sponsor configuration
       try {
         const sponsorConfig = loadSponsorConfig();
         console.log(`${colors.fg.green}✓ Sponsor configuration loaded${colors.reset}`);
@@ -360,16 +418,13 @@ async function main() {
         console.warn(`${colors.fg.yellow}Sponsor configuration not found, proceeding with defaults${colors.reset}`);
       }
       
-      // Prepare the ZIP file
       console.log(`${colors.fg.blue}Preparing deployment package...${colors.reset}`);
       const zipPath = path.join(process.cwd(), 'deploy.zip');
       
-      // Show progress bar while zipping
       showProgress("Zipping folder", 0);
       await zipFolder(deployFolder, zipPath);
       showProgress("Zipping folder", 1);
       
-      // Upload to sponsor server with API key
       console.log(`${colors.fg.blue}Uploading to sponsor server...${colors.reset}`);
       const form = new FormData();
       form.append('zip', fs.createReadStream(zipPath));
@@ -379,11 +434,9 @@ async function main() {
         form.append('eventPoolPassword', poolConfig.eventPoolPassword);
       }
       
-      // The API key should match what's in the server (deploy-api-key-123)
       const API_KEY = 'deploy-api-key-123';
       
       try {
-        // Show progress bar while uploading
         let uploadProgress = 0;
         const progressInterval = setInterval(() => {
           uploadProgress += 0.05;
@@ -406,28 +459,33 @@ async function main() {
         
         manifestId = response.data.manifestId;
         console.log(`${colors.fg.green}✓ Sponsored deployment completed with manifest ID: ${manifestId}${colors.reset}`);
+        
+        // Update manifest with new files (for sponsor pool, we assume all files are new)
+        for (const file of filesToUpload) {
+          manifest.files[file.path] = {
+            txId: manifestId, // Sponsor pool returns single manifest ID
+            hash: file.hash,
+            lastModified: fs.statSync(file.fullPath).mtime.toISOString()
+          };
+        }
+        manifest.lastManifestId = manifestId;
+        saveManifest(manifestPath, manifest);
       } catch (error) {
         console.error(`${colors.fg.red}Sponsor server error: ${error.response?.data?.error || error.message}${colors.reset}`);
         throw error;
       } finally {
-        // Clean up zip file
         if (fs.existsSync(zipPath)) {
           fs.unlinkSync(zipPath);
         }
       }
     } else {
-      // Direct upload using wallet
       if (!DEPLOY_KEY) {
         console.error(`${colors.fg.red}No DEPLOY_KEY available for direct upload. Please set DEPLOY_KEY environment variable.${colors.reset}`);
         process.exit(1);
       }
       
-      // Infer signer type based on DEPLOY_KEY
       try {
-        // Try to parse as JSON for Arweave
         const parsedKey = JSON.parse(DEPLOY_KEY);
-        
-        // Check if it has typical Arweave JWK fields
         if (parsedKey.n && parsedKey.d) {
           signer = new ArweaveSigner(parsedKey);
           token = 'arweave';
@@ -436,7 +494,6 @@ async function main() {
           throw new Error('Parsed JSON does not appear to be a valid Arweave key');
         }
       } catch (e) {
-        // Not JSON, assume it's an Ethereum/Polygon private key
         if (/^(0x)?[0-9a-fA-F]{64}$/.test(DEPLOY_KEY)) {
           signer = new EthereumSigner(DEPLOY_KEY);
           token = network === 'polygon' ? 'pol' : 'ethereum';
@@ -448,9 +505,57 @@ async function main() {
 
       console.log(`${colors.fg.blue}Deploying folder directly from wallet:${colors.reset} ${deployFolder}`);
       console.log(`${colors.fg.blue}Wallet source:${colors.reset} ${walletSource}`);
-      console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPLOADING TO ARWEAVE ════╗${colors.reset}`);
+      console.log(`\n${colors.bright}${colors.fg.yellow}╔════ CHECKING FILES FOR CHANGES ════╗${colors.reset}`);
       
-      // Simulate upload progress
+      // Prepare paths for manifest
+      const paths = {};
+      const filesToUploadFiltered = [];
+      let skippedCount = 0;
+
+      // Check which files need to be uploaded
+      console.log(`${colors.fg.blue}Checking files for changes:${colors.reset}`);
+      for (const file of filesToUpload) {
+        const relativePath = path.relative(deployFolder, file.fullPath).replace(/\\/g, '/').replace(/^\.\//, '');
+        const existingFile = manifest.files[relativePath];
+        if (existingFile && existingFile.hash === file.hash) {
+          console.log(`${colors.fg.cyan}✓ Skipped unchanged file: ${relativePath} (txId: ${existingFile.txId}, hash: ${file.hash})${colors.reset}`);
+          paths[relativePath] = { id: existingFile.txId };
+          skippedCount++;
+        } else {
+          console.log(`${colors.fg.yellow}● Changed or new file: ${relativePath} (hash: ${file.hash})${colors.reset}`);
+          filesToUploadFiltered.push({ ...file, relativePath });
+        }
+      }
+
+      console.log(`${colors.fg.blue}Summary: ${skippedCount} files unchanged, ${filesToUploadFiltered.length} files to upload${colors.reset}`);
+
+      if (filesToUploadFiltered.length === 0) {
+        console.log(`${colors.fg.green}✓ All files are unchanged. No upload required.${colors.reset}`);
+        if (!manifestId) {
+          console.error(`${colors.fg.red}✗ No previous manifest ID found in manifest. Cannot display deployment links.${colors.reset}`);
+          process.exit(1);
+        }
+
+        console.log(`\n${colors.bright}${colors.fg.green}╔════ DEPLOYMENT UNCHANGED ════╗${colors.reset}`);
+        console.log(`${colors.fg.white}View existing deployment at:${colors.reset}`);
+        console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.ar.io/${manifestId} ${colors.reset}`);
+        console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.net/${manifestId} ${colors.reset}`);
+
+        if (antProcess && arnsName) {
+          if (undername === '@' || !undername) {
+            console.log(`\n${colors.fg.white}Or via ARNS at:${colors.reset}`);
+            console.log(`${colors.bg.blue}${colors.fg.white} https://${arnsName}.ar.io${colors.reset}`);
+          } else {
+            console.log(`\n${colors.fg.white}Or via ARNS at:${colors.reset}`);
+            console.log(`${colors.bg.blue}${colors.fg.white} https://${undername}_${arnsName}.ar.io ${colors.reset}`);
+          }
+        }
+        
+        console.log(`${colors.fg.green}╚══════════════════════════════╝${colors.reset}`);
+        process.exit(0);
+      }
+
+      console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPLOADING TO ARWEAVE ════╗${colors.reset}`);
       let lastProgress = 0;
       const updateInterval = setInterval(() => {
         lastProgress += Math.random() * 0.05;
@@ -461,12 +566,12 @@ async function main() {
         showProgress("Uploading to Arweave", lastProgress);
       }, 300);
 
-      // Initialize TurboFactory with signer and token
       const turbo = TurboFactory.authenticated({
         signer: signer,
         token: token,
       });
 
+      // Upload only changed files
       const uploadResult = await turbo.uploadFolder({
         folderPath: deployFolder,
         dataItemOpts: {
@@ -475,13 +580,16 @@ async function main() {
               name: 'App-Name',
               value: 'PermaDeploy',
             },
-            // prevents identical transaction Ids from eth wallets
             {
               name: 'anchor',
               value: new Date().toISOString(),
             },
           ],
         },
+        manifestOptions: {
+          indexFile: 'index.html',
+          fallbackFile: '404.html'
+        }
       });
 
       clearInterval(updateInterval);
@@ -489,15 +597,31 @@ async function main() {
 
       manifestId = uploadResult.manifestResponse.id;
       console.log(`${colors.fg.green}✓ Manifest uploaded with ID: ${manifestId}${colors.reset}`);
+
+      // Log uploadResult.paths for debugging
+      console.log(`${colors.fg.blue}Upload result paths:${colors.reset}`);
+      console.log(uploadResult.paths || 'Work in progress...');
+
+      // Update manifest with new transaction IDs
+      for (const file of filesToUploadFiltered) {
+        const stat = fs.statSync(file.fullPath);
+        manifest.files[file.relativePath] = {
+          txId: uploadResult.paths?.[file.relativePath]?.id || manifestId,
+          hash: file.hash,
+          lastModified: stat.mtime.toISOString()
+        };
+        console.log(`${colors.fg.blue}Updated manifest for ${file.relativePath}: ${manifest.files[file.relativePath].txId}${colors.reset}`);
+      }
+
+      manifest.lastManifestId = manifestId;
+      saveManifest(manifestPath, manifest);
     }
     
-    // Update ANT record if applicable
     if (antProcess && (arnsName || undername !== '@') && signer) {
       console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPDATING ANT RECORD ════╗${colors.reset}`);
       console.log(`${colors.fg.blue}Updating ANT process:${colors.reset} ${antProcess}`);
       console.log(`${colors.fg.blue}Undername:${colors.reset} ${undername}`);
       
-      // Validate manifestId
       if (!manifestId || typeof manifestId !== 'string' || manifestId.length !== 43) {
         console.error(`${colors.fg.red}✗ Invalid manifest ID: ${manifestId}. Cannot update ANT record.${colors.reset}`);
         throw new Error('Invalid manifest ID');
@@ -506,13 +630,11 @@ async function main() {
       const ant = ANT.init({ processId: antProcess, signer });
       const commitHash = getCommitHash();
       
-      // Show simulated progress
       for (let i = 0; i <= 100; i += 20) {
         showProgress("Updating ANT record", i/100);
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      // Update the ANT record with error handling
       try {
         await ant.setUndernameRecord(
           {
@@ -551,7 +673,6 @@ async function main() {
     console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.ar.io/${manifestId} ${colors.reset}`);
     console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.net/${manifestId} ${colors.reset}`);
 
-    // If ANT process is used, display the ANT URL
     if (antProcess && arnsName) {
       if (undername === '@' || !undername) {
         console.log(`\n${colors.fg.white}Or via ARNS at:${colors.reset}`);
