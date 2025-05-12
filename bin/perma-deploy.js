@@ -12,8 +12,6 @@ import archiver from 'archiver';
 import axios from 'axios';
 import FormData from 'form-data';
 
-console.log(`Current version: ${import('./package.json').version}`); 
-
 // ANSI colors and styling for terminal output
 const colors = {
   reset: "\x1b[0m",
@@ -173,78 +171,57 @@ async function checkSponsorServer(url = 'http://localhost:3000') {
   }
 }
 
-async function main() {
-  // First, load config from file if it exists
+// Function to load configuration from config files
+function loadConfig() {
   let config = {};
-  const permaDeployDir = path.join(process.cwd(), '.perma-deploy');
-  const useConfigFile = fs.existsSync(permaDeployDir);
   
-  if (useConfigFile) {
-    try {
-      const configPath = path.join(permaDeployDir, 'config.json');
-      if (fs.existsSync(configPath)) {
+  // Check for config in multiple locations with priority
+  const configLocations = [
+    path.join(process.cwd(), '.perma-deploy', 'config.json'),
+    path.join(process.cwd(), 'config.json'),
+    path.join(process.cwd(), '.permaweb', 'config.json')
+  ];
+  
+  for (const configPath of configLocations) {
+    if (fs.existsSync(configPath)) {
+      try {
         config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-        console.log(`${colors.fg.blue}Using configuration from .perma-deploy/config.json${colors.reset}`);
+        console.log(`${colors.fg.blue}Using configuration from ${configPath}${colors.reset}`);
+        break;
+      } catch (error) {
+        console.error(`${colors.fg.red}Error reading config file ${configPath}: ${error.message}${colors.reset}`);
       }
-    } catch (error) {
-      console.error(`${colors.fg.red}Error reading config file: ${error.message}${colors.reset}`);
-      process.exit(1);
     }
   }
+  
+  return config;
+}
 
-  // Then parse command line arguments
+async function main() {
+  // Load config from file
+  const config = loadConfig();
+  
+  // Get CLI arguments but only use them for --dry-run
+  // This allows us to run with --dry-run without changing config
   const argv = yargs(hideBin(process.argv))
-    .option('deploy-folder', {
-      alias: 'd',
-      type: 'string',
-      description: 'Folder to deploy.',
-    })
     .option('dry-run', {
       type: 'boolean',
       default: false,
       description: 'Simulate deployment without uploading'
-    })
-    .option('ant-process', {
-      alias: 'a',
-      type: 'string',
-      description: 'The ANT process ID.'
-    })
-    .option('undername', {
-      alias: 'u',
-      type: 'string',
-      description: 'ANT undername to update.',
-      default: '@'
-    })
-    .option('network', {
-      alias: 'n',
-      type: 'string',
-      description: 'Network for Ethereum-based signers.',
-      choices: ['ethereum', 'polygon'],
-    })
-    .option('server-url', {
-      alias: 's',
-      type: 'string',
-      description: 'URL of the sponsor server.',
-      default: 'http://localhost:3000'
-    })
-    .option('force-sponsor', {
-      alias: 'f',
-      type: 'boolean',
-      default: false,
-      description: 'Force using sponsor pool regardless of size'
     }).argv;
-   
-  // Priority: config first, then command line args as override
-  const deployFolder = path.resolve(process.cwd(), 
-    argv['deploy-folder'] || config.deployFolder || 'dist');
+  
+  // Use only config values, except for dry-run which can be overridden by CLI
   const dryRun = argv['dry-run'] || config.dryRun || false;
-  const antProcess = argv['ant-process'] || config.antProcess;
-  const undername = argv['undername'] || config.undername || '@';
-  const network = argv['network'] || config.network || 'arweave';
+  const deployFolder = path.resolve(process.cwd(), config.deployFolder || 'dist');
+  const antProcess = config.antProcess;
+  const undername = config.undername || '@';
+  const network = config.sigType || 'arweave';
   const buildCommand = config.buildCommand || 'npm run build';
   const deployBranch = config.deployBranch || 'main';
-  const serverUrl = argv['server-url'] || config.serverUrl || 'http://localhost:3000';
-  const forceSponsor = argv['force-sponsor'] || config.forceSponsor || false;
+  const serverUrl = config.serverUrl || 'http://localhost:3000';
+  const forceSponsor = config.forceSponsor || false;
+  const arnsName = config.arnsName || '';
+  const walletPath = config.walletPath || '';
 
   // Display configuration
   console.log(`\n${colors.bright}${colors.fg.yellow}╔════ DEPLOYMENT CONFIGURATION ════╗${colors.reset}`);
@@ -255,6 +232,8 @@ async function main() {
   if (antProcess) console.log(`${colors.fg.cyan}● ANT Process:${colors.reset} ${antProcess}`);
   if (undername) console.log(`${colors.fg.cyan}● Undername:${colors.reset} ${undername}`);
   if (network) console.log(`${colors.fg.cyan}● Network:${colors.reset} ${network}`);
+  if (arnsName) console.log(`${colors.fg.cyan}● ARNS Name:${colors.reset} ${arnsName}`);
+  if (walletPath) console.log(`${colors.fg.cyan}● Wallet Path:${colors.reset} ${walletPath}`);
 
   // Sponsor server availability check
   const sponsorServerAvailable = await checkSponsorServer(serverUrl);
@@ -271,13 +250,16 @@ async function main() {
   // Get the DEPLOY_KEY from environment variable or config file
   let DEPLOY_KEY = process.env.DEPLOY_KEY;
   let walletSource = 'environment variable DEPLOY_KEY';
-  if (!DEPLOY_KEY && useConfigFile && config.walletPath) {
+  
+  if (!DEPLOY_KEY && walletPath) {
     try {
-      DEPLOY_KEY = fs.readFileSync(config.walletPath, 'utf-8');
-      walletSource = `config file at ${config.walletPath}`;
-      console.log(`${colors.fg.green}✓ Wallet loaded from ${config.walletPath}${colors.reset}`);
+      const resolvedWalletPath = path.resolve(walletPath);
+      DEPLOY_KEY = fs.readFileSync(resolvedWalletPath, 'utf-8');
+      walletSource = `config file at ${resolvedWalletPath}`;
+      console.log(`${colors.fg.green}✓ Wallet loaded from ${resolvedWalletPath}${colors.reset}`);
     } catch (error) {
-      console.error(`${colors.fg.red}Error reading wallet from ${config.walletPath}: ${error.message}${colors.reset}`);
+      console.error(`${colors.fg.red}Error reading wallet from ${walletPath}: ${error.message}${colors.reset}`);
+      console.error(`${colors.fg.yellow}Resolved path: ${path.resolve(walletPath)}${colors.reset}`);
       process.exit(1);
     }
   }
@@ -510,7 +492,7 @@ async function main() {
     }
     
     // Update ANT record if applicable
-    if (antProcess && (config.arnsName || undername !== '@') && signer) {
+    if (antProcess && (arnsName || undername !== '@') && signer) {
       console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPDATING ANT RECORD ════╗${colors.reset}`);
       console.log(`${colors.fg.blue}Updating ANT process:${colors.reset} ${antProcess}`);
       console.log(`${colors.fg.blue}Undername:${colors.reset} ${undername}`);
@@ -570,13 +552,13 @@ async function main() {
     console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.net/${manifestId} ${colors.reset}`);
 
     // If ANT process is used, display the ANT URL
-    if (antProcess && config.arnsName) {
+    if (antProcess && arnsName) {
       if (undername === '@' || !undername) {
         console.log(`\n${colors.fg.white}Or via ARNS at:${colors.reset}`);
-        console.log(`${colors.bg.blue}${colors.fg.white} https://${config.arnsName}.ar.io${colors.reset}`);
+        console.log(`${colors.bg.blue}${colors.fg.white} https://${arnsName}.ar.io${colors.reset}`);
       } else {
         console.log(`\n${colors.fg.white}Or via ARNS at:${colors.reset}`);
-        console.log(`${colors.bg.blue}${colors.fg.white} https://${undername}_${config.arnsName}.ar.io ${colors.reset}`);
+        console.log(`${colors.bg.blue}${colors.fg.white} https://${undername}_${arnsName}.ar.io ${colors.reset}`);
       }
     }
     
