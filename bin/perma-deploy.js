@@ -596,7 +596,7 @@ async function main() {
       const uploadedFiles = {};
       let uploadProgress = 0;
       const totalItems = filesToUploadFiltered.length + 1; // +1 for manifest
-      const progressIncrement = totalItems > 0 ? 1.0 / totalItems : 1.0;
+      const progressIncrement = totalItems > 0 ? 0.95 / totalItems : 0.95;
 
       // Print an initial empty line for the progress bar to overwrite
       console.log('');
@@ -624,9 +624,10 @@ async function main() {
             hash: file.hash,
             lastModified: fs.statSync(file.fullPath).mtime.toISOString(),
           };
+          console.log(`${colors.fg.green}✓ Uploaded ${file.relativePath} with ID: ${uploadResult.id}${colors.reset}`);
 
           uploadProgress += progressIncrement;
-          showProgress('', uploadProgress); // Update progress bar without file name
+          showProgress('', uploadProgress); // Update progress bar without file name after completion
         } catch (error) {
           console.error(`${colors.fg.red}✗ Failed to upload ${file.relativePath}: ${error.message}${colors.reset}`);
           throw error;
@@ -675,6 +676,7 @@ async function main() {
 
         manifestId = manifestUploadResult.id;
         showProgress('', 1.0);
+        console.log(`${colors.fg.green}✓ Manifest uploaded with ID: ${manifestId}${colors.reset}`);
       } catch (error) {
         console.error(`${colors.fg.red}✗ Failed to upload manifest: ${error.message}${colors.reset}`);
         throw error;
