@@ -4,8 +4,8 @@ let generatedDeployCommand = '';
 async function generateCommand() {
   try {
     const projectName = document.getElementById('projectName').value || '';
-    const buildCommand = document.getElementById('buildCommand').value || 'npm run build';
-    const installCommand = document.getElementById('installCommand').value || 'npm install';
+    const buildCommand = document.getElementById('buildCommand').value || '';
+    const installCommand = document.getElementById('installCommand').value || '';
     const branch = document.getElementById('branch').value || 'main';
     const deployFolder = document.getElementById('deployFolder').value || 'dist';
     const autoDeploy = document.getElementById('autoDeploy').checked;
@@ -15,7 +15,7 @@ async function generateCommand() {
     const arnsName = document.getElementById('arnsName').value || '';
     const undername = document.getElementById('undername').value || '';
 
-    let initCommand = 'npx perma-init';
+    let initCommand = 'npm i -g nitya && npx perma-init';
     if (projectName) initCommand += ` --project-name "${projectName}"`;
     if (installCommand) initCommand += ` --install "${installCommand}"`;
     if (buildCommand) initCommand += ` --build "${buildCommand}"`;

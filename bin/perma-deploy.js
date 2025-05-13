@@ -12,6 +12,7 @@ import archiver from 'archiver';
 import axios from 'axios';
 import FormData from 'form-data';
 import crypto from 'crypto';
+import { Readable } from 'stream';
 
 // ANSI colors and styling for terminal output
 const colors = {
@@ -42,7 +43,7 @@ const colors = {
   }
 };
 
-// Function to show a progress bar in the terminal
+// Function to show a progress bar in the terminal with dynamic message
 function showProgress(message, percent) {
   const width = 30;
   const filled = Math.floor(width * percent);
@@ -51,9 +52,16 @@ function showProgress(message, percent) {
   const filledBar = '█'.repeat(filled);
   const emptyBar = '░'.repeat(empty);
   
+  // Move cursor up one line if message exists (to overwrite previous message)
+  if (message) {
+    process.stdout.write('\x1b[1A'); // Move cursor up one line
+  }
   process.stdout.clearLine();
   process.stdout.cursorTo(0);
-  process.stdout.write(`${message} [${colors.fg.green}${filledBar}${colors.fg.white}${emptyBar}${colors.reset}] ${Math.floor(percent * 100)}%`);
+  if (message) {
+    process.stdout.write(`${colors.fg.blue}${message}${colors.reset}\n`);
+  }
+  process.stdout.write(`Uploading to Arweave [${colors.fg.green}${filledBar}${colors.fg.white}${emptyBar}${colors.reset}] ${Math.floor(percent * 100)}%`);
   
   if (percent >= 1) {
     process.stdout.write('\n');
@@ -170,6 +178,29 @@ function getAllFilesWithHashes(directoryPath) {
   
   walkDir(directoryPath);
   return files;
+}
+
+// Function to determine Content-Type based on file extension
+function getContentType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.txt': 'text/plain',
+    '.pdf': 'application/pdf',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf',
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
 }
 
 // Function to select pool type
@@ -556,63 +587,107 @@ async function main() {
       }
 
       console.log(`\n${colors.bright}${colors.fg.yellow}╔════ UPLOADING TO ARWEAVE ════╗${colors.reset}`);
-      let lastProgress = 0;
-      const updateInterval = setInterval(() => {
-        lastProgress += Math.random() * 0.05;
-        if (lastProgress > 0.95) {
-          clearInterval(updateInterval);
-          lastProgress = 0.95;
-        }
-        showProgress("Uploading to Arweave", lastProgress);
-      }, 300);
-
       const turbo = TurboFactory.authenticated({
         signer: signer,
         token: token,
       });
 
-      // Upload only changed files
-      const uploadResult = await turbo.uploadFolder({
-        folderPath: deployFolder,
-        dataItemOpts: {
-          tags: [
-            {
-              name: 'App-Name',
-              value: 'PermaDeploy',
-            },
-            {
-              name: 'anchor',
-              value: new Date().toISOString(),
-            },
-          ],
-        },
-        manifestOptions: {
-          indexFile: 'index.html',
-          fallbackFile: '404.html'
-        }
-      });
+      // Upload each file individually with a single progress bar
+      const uploadedFiles = {};
+      let uploadProgress = 0;
+      const totalItems = filesToUploadFiltered.length + 1; // +1 for manifest
+      const progressIncrement = totalItems > 0 ? 1.0 / totalItems : 1.0;
 
-      clearInterval(updateInterval);
-      showProgress("Uploading to Arweave", 1.0);
+      // Print an initial empty line for the progress bar to overwrite
+      console.log('');
 
-      manifestId = uploadResult.manifestResponse.id;
-      console.log(`${colors.fg.green}✓ Manifest uploaded with ID: ${manifestId}${colors.reset}`);
-
-      // Log uploadResult.paths for debugging
-      console.log(`${colors.fg.blue}Upload result paths:${colors.reset}`);
-      console.log(uploadResult.paths || 'Work in progress...');
-
-      // Update manifest with new transaction IDs
       for (const file of filesToUploadFiltered) {
-        const stat = fs.statSync(file.fullPath);
-        manifest.files[file.relativePath] = {
-          txId: uploadResult.paths?.[file.relativePath]?.id || manifestId,
-          hash: file.hash,
-          lastModified: stat.mtime.toISOString()
-        };
-        console.log(`${colors.fg.blue}Updated manifest for ${file.relativePath}: ${manifest.files[file.relativePath].txId}${colors.reset}`);
+        const fileStreamFactory = () => fs.createReadStream(file.fullPath);
+        const fileSizeFactory = () => fs.statSync(file.fullPath).size;
+
+        try {
+          showProgress(`Uploading file: ${file.relativePath}`, uploadProgress);
+          const uploadResult = await turbo.uploadFile({
+            fileStreamFactory,
+            fileSizeFactory,
+            dataItemOpts: {
+              tags: [
+                { name: 'App-Name', value: 'PermaDeploy' },
+                { name: 'anchor', value: new Date().toISOString() },
+                { name: 'Content-Type', value: getContentType(file.relativePath) },
+              ],
+            },
+          });
+
+          uploadedFiles[file.relativePath] = {
+            id: uploadResult.id,
+            hash: file.hash,
+            lastModified: fs.statSync(file.fullPath).mtime.toISOString(),
+          };
+
+          uploadProgress += progressIncrement;
+          showProgress('', uploadProgress); // Update progress bar without file name
+        } catch (error) {
+          console.error(`${colors.fg.red}✗ Failed to upload ${file.relativePath}: ${error.message}${colors.reset}`);
+          throw error;
+        }
       }
 
+      // Merge unchanged files into the paths for the manifest
+      for (const [path, data] of Object.entries(manifest.files)) {
+        if (data.txId && !uploadedFiles[path]) {
+          uploadedFiles[path] = data;
+        }
+      }
+
+      // Generate manifest
+      const manifestData = {
+        manifest: 'arweave/paths',
+        version: '0.1.0',
+        index: { path: 'index.html' },
+        fallback: { id: uploadedFiles['404.html']?.id || '' },
+        paths: {},
+      };
+
+      for (const [path, data] of Object.entries(uploadedFiles)) {
+        manifestData.paths[path] = { id: data.id };
+      }
+
+      // Convert manifest to JSON
+      const manifestBuffer = Buffer.from(JSON.stringify(manifestData, null, 2));
+      const manifestStreamFactory = () => Readable.from(manifestBuffer);
+      const manifestSizeFactory = () => manifestBuffer.length;
+
+      // Upload manifest
+      try {
+        showProgress(`Uploading manifest`, uploadProgress);
+        const manifestUploadResult = await turbo.uploadFile({
+          fileStreamFactory: manifestStreamFactory,
+          fileSizeFactory: manifestSizeFactory,
+          dataItemOpts: {
+            tags: [
+              { name: 'App-Name', value: 'PermaDeploy' },
+              { name: 'anchor', value: new Date().toISOString() },
+              { name: 'Content-Type', value: 'application/x.arweave-manifest+json' },
+            ],
+          },
+        });
+
+        manifestId = manifestUploadResult.id;
+        showProgress('', 1.0);
+      } catch (error) {
+        console.error(`${colors.fg.red}✗ Failed to upload manifest: ${error.message}${colors.reset}`);
+        throw error;
+      }
+
+      // Update local manifest file
+      for (const [relativePath, data] of Object.entries(uploadedFiles)) {
+        manifest.files[relativePath] = {
+          txId: data.id,
+          hash: data.hash,
+          lastModified: data.lastModified,
+        };
+      }
       manifest.lastManifestId = manifestId;
       saveManifest(manifestPath, manifest);
     }
