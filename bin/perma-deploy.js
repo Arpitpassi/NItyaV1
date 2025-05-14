@@ -543,11 +543,18 @@ async function main() {
       const filesToUploadFiltered = [];
       let skippedCount = 0;
 
+      // Normalize paths in the existing manifest to ensure consistency
+      const normalizedManifestFiles = {};
+      for (const [relativePath, data] of Object.entries(manifest.files)) {
+        const normalizedPath = relativePath.replace(/\\/g, '/').replace(/^\.\//, '');
+        normalizedManifestFiles[normalizedPath] = data;
+      }
+
       // Check which files need to be uploaded
       console.log(`${colors.fg.blue}Checking files for changes:${colors.reset}`);
       for (const file of filesToUpload) {
         const relativePath = path.relative(deployFolder, file.fullPath).replace(/\\/g, '/').replace(/^\.\//, '');
-        const existingFile = manifest.files[relativePath];
+        const existingFile = normalizedManifestFiles[relativePath];
         if (existingFile && existingFile.hash === file.hash) {
           console.log(`${colors.fg.cyan}✓ Skipped unchanged file: ${relativePath} (txId: ${existingFile.txId}, hash: ${file.hash})${colors.reset}`);
           paths[relativePath] = { id: existingFile.txId };
@@ -596,7 +603,7 @@ async function main() {
       const uploadedFiles = {};
       let uploadProgress = 0;
       const totalItems = filesToUploadFiltered.length + 1; // +1 for manifest
-      const progressIncrement = totalItems > 0 ? 0.95 / totalItems : 0.95;
+      const progressIncrement = totalItems > 0 ? 1.0 / totalItems : 1.0;
 
       // Print an initial empty line for the progress bar to overwrite
       console.log('');
@@ -624,20 +631,29 @@ async function main() {
             hash: file.hash,
             lastModified: fs.statSync(file.fullPath).mtime.toISOString(),
           };
-          console.log(`${colors.fg.green}✓ Uploaded ${file.relativePath} with ID: ${uploadResult.id}${colors.reset}`);
 
           uploadProgress += progressIncrement;
-          showProgress('', uploadProgress); // Update progress bar without file name after completion
+          showProgress('', uploadProgress);
         } catch (error) {
           console.error(`${colors.fg.red}✗ Failed to upload ${file.relativePath}: ${error.message}${colors.reset}`);
           throw error;
         }
       }
 
-      // Merge unchanged files into the paths for the manifest
-      for (const [path, data] of Object.entries(manifest.files)) {
-        if (data.txId && !uploadedFiles[path]) {
-          uploadedFiles[path] = data;
+      // Merge unchanged files into uploadedFiles, ensuring all files are accounted for
+      const allFiles = filesToUpload.map(file => path.relative(deployFolder, file.fullPath).replace(/\\/g, '/').replace(/^\.\//, ''));
+      for (const relativePath of allFiles) {
+        if (!uploadedFiles[relativePath]) {
+          const existingFile = normalizedManifestFiles[relativePath];
+          if (existingFile && existingFile.txId) {
+            uploadedFiles[relativePath] = {
+              id: existingFile.txId,
+              hash: existingFile.hash,
+              lastModified: existingFile.lastModified,
+            };
+          } else {
+            console.warn(`${colors.fg.yellow}Warning: File ${relativePath} not found in manifest and not uploaded. It may be missing in the deployment.${colors.reset}`);
+          }
         }
       }
 
@@ -676,20 +692,21 @@ async function main() {
 
         manifestId = manifestUploadResult.id;
         showProgress('', 1.0);
-        console.log(`${colors.fg.green}✓ Manifest uploaded with ID: ${manifestId}${colors.reset}`);
       } catch (error) {
         console.error(`${colors.fg.red}✗ Failed to upload manifest: ${error.message}${colors.reset}`);
         throw error;
       }
 
       // Update local manifest file
+      const updatedManifestFiles = {};
       for (const [relativePath, data] of Object.entries(uploadedFiles)) {
-        manifest.files[relativePath] = {
+        updatedManifestFiles[relativePath] = {
           txId: data.id,
           hash: data.hash,
           lastModified: data.lastModified,
         };
       }
+      manifest.files = updatedManifestFiles;
       manifest.lastManifestId = manifestId;
       saveManifest(manifestPath, manifest);
     }
