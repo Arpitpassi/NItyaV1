@@ -15,7 +15,7 @@ async function generateCommand() {
     const arnsName = document.getElementById('arnsName').value || '';
     const undername = document.getElementById('undername').value || '';
 
-    let initCommand = 'npm i -g nitya && npx perma-init';
+    let initCommand = 'npx nitya init';
     if (projectName) initCommand += ` --project-name "${projectName}"`;
     if (installCommand) initCommand += ` --install "${installCommand}"`;
     if (buildCommand) initCommand += ` --build "${buildCommand}"`;
@@ -42,8 +42,7 @@ async function generateCommand() {
     };
   } catch (error) {
     console.error('Error generating command:', error);
-    document.getElementById('status').textContent = `Error: ${error.message}`;
-    document.getElementById('status').classList.add('error');
+    showStatusMessage('status', `Error: ${error.message}`, 'error');
     return null;
   }
 }
@@ -51,14 +50,6 @@ async function generateCommand() {
 function showHelpSection() {
   document.getElementById('helpSection').style.display = 'block';
   toggleBackgroundBlur(true);
-}
-
-
-function toggleBackgroundBlur(blur) {
-  const elements = document.querySelectorAll('body > *:not(#canvas-container):not(.configuration-form):not(.command-output):not(.help-section):not(.status-message):not(.debug-panel):not(.help-button)');
-  elements.forEach(el => {
-    el.classList.toggle('blur-background', blur);
-  });
 }
 
 async function generateAndShowInitCommand() {
@@ -82,8 +73,6 @@ function goBackToInitCommand() {
   document.getElementById('initCommandOutputDiv').style.display = 'block';
 }
 
-
-
 function copyInitCommand() {
   const commandOutput = document.getElementById('initCommandOutput');
   navigator.clipboard.writeText(commandOutput.textContent).then(() => {
@@ -96,16 +85,6 @@ function copyDeployCommand() {
   navigator.clipboard.writeText(commandOutput.textContent).then(() => {
     showStatusMessage('status', 'Deployment command copied to clipboard!', 'success');
   });
-}
-
-function showStatusMessage(elementId, message, type) {
-  const statusEl = document.getElementById(elementId);
-  statusEl.textContent = message;
-  statusEl.className = `status-message ${type}`;
-  setTimeout(() => {
-    statusEl.className = 'status-message';
-    statusEl.textContent = '';
-  }, 3000);
 }
 
 function showConfigForm() {
@@ -125,8 +104,6 @@ async function topUpWallet() {
     if (!window.arweaveWallet) throw new Error('Wander wallet not detected.');
     if (!mainWalletConnected) throw new Error('Connect your wallet first.');
     if (!projectWalletAddress) throw new Error('Set a project wallet address.');
-
-    if (!arweaveInstance) arweaveInstance = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
 
     const senderAddress = await window.arweaveWallet.getActiveAddress();
     const balanceAR = arweaveInstance.ar.winstonToAr(await arweaveInstance.wallets.getBalance(senderAddress));

@@ -87,8 +87,9 @@ function checkWalletAvailability() {
 function isSdkLoaded() {
   const arweaveLoaded = typeof window.Arweave !== 'undefined';
   const arIOLoaded = typeof window.arIO !== 'undefined' && typeof window.arIO.ANTRegistry !== 'undefined';
-  logDebug(`SDK check - Arweave: ${arweaveLoaded}, arIO: ${arIOLoaded}`);
-  return arweaveLoaded && arIOLoaded;
+  const antLoaded = typeof window.arIO !== 'undefined' && typeof window.arIO.ANT !== 'undefined';
+  logDebug(`SDK check - Arweave: ${arweaveLoaded}, arIO: ${arIOLoaded}, ANT: ${antLoaded}`);
+  return arweaveLoaded && arIOLoaded && antLoaded;
 }
 
 async function waitForSdkToLoad(timeout = 10000) {
@@ -210,31 +211,46 @@ async function populateArnsNames(address) {
     
     logDebug('Fetching ANT processes for address: ' + address);
     
-    if (!window.arIO || !window.arIO.ANTRegistry) {
-      throw new Error('ARIO SDK not loaded or initialized properly');
+    if (!window.arIO || !window.arIO.ANTRegistry || !window.arIO.ANT) {
+      throw new Error('ARIO SDK or ANT SDK not loaded or initialized properly');
     }
     
     const registry = window.arIO.ANTRegistry.init();
     const processes = await getANTProcessesOwnedByWallet({ address, registry });
-    arnsData = processes.map(processId => ({ name: processId, processId }));
-    logDebug(`Retrieved ${processes.length} processes`);
+    
+    // Loop through process IDs to fetch names
+    arnsData = [];
+    for (const processId of processes) {
+      try {
+        const ant = window.arIO.ANT.init({ processId });
+        const info = await ant.getInfo();
+        const name = info.name || processId; // Fallback to processId if name is not available
+        arnsData.push({ name, processId });
+        logDebug(`Retrieved name "${name}" for process ID: ${processId}`);
+      } catch (error) {
+        logDebug(`Error fetching name for process ID ${processId}: ${error.message}`);
+        arnsData.push({ name: processId, processId }); // Fallback to processId
+      }
+    }
+    
+    logDebug(`Retrieved ${arnsData.length} processes`);
     
     const dropdown = document.getElementById('arnsNames');
-    dropdown.innerHTML = '<option value="">Select an ANT Process</option>';
+    dropdown.innerHTML = '<option value="">Select an ARNS Name</option>';
     
-    if (processes.length === 0) {
+    if (arnsData.length === 0) {
       showStatusMessage('walletStatus', 'Wallet connected! No ARNS processes found for this wallet.', 'success');
       return;
     }
     
-    processes.forEach(processId => {
+    arnsData.forEach(({ name, processId }) => {
       const option = document.createElement('option');
-      option.value = processId;
-      option.textContent = processId;
+      option.value = processId; // Use processId as the value
+      option.textContent = name; // Display the name
       dropdown.appendChild(option);
     });
     
-    showStatusMessage('walletStatus', `Found ${processes.length} ARNS process${processes.length === 1 ? '' : 'es'}`, 'success');
+    showStatusMessage('walletStatus', `Found ${arnsData.length} ARNS name${arnsData.length === 1 ? '' : 's'}`, 'success');
   } catch (error) {
     logDebug(`Error fetching ANT processes: ${error.message}`);
     showStatusMessage('walletStatus', `Error loading ARNS names: ${error.message}`, 'error');
@@ -255,3 +271,4 @@ function usePastedWallet() {
   logDebug(`Set project wallet address: ${pastedWallet}`);
   showStatusMessage('status', 'Project wallet address set successfully!', 'success');
 }
+

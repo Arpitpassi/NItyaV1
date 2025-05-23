@@ -260,7 +260,7 @@ async function main() {
     // Make wallet address copyable
     console.log(`\n${colors.bright}${colors.fg.yellow}╔════ WALLET ADDRESS ════╗${colors.reset}`);
     await makeWalletCopyable(walletAddress);
-    console.log(`${colors.fg.green}ℹ Make sure to fund this wallet with AR or Turbo credits before deployment if the file size is greater than 100kb.${colors.reset}`);
+    console.log(`${colors.fg.green}Make sure to fund this wallet with AR or Turbo credits before deployment if the file size is greater than 100kb.${colors.reset}`);
    
   } else {
     console.log(`\n${colors.bright}${colors.fg.yellow}╔════ ${sigType.toUpperCase()} WALLET SETUP ════╗${colors.reset}`);
@@ -415,7 +415,7 @@ console.log(`\n${colors.fg.white}Get started with:${colors.reset}`);
 
 // If none of the properties are defined in the config, show npx command
 if (!hasAntConfig && !hasArnsName && !hasUndername) {
-  console.log(`${colors.bg.green}${colors.fg.black} npx perma-deploy and top up your wallet with turbo credits ${colors.reset}`);
+  console.log(`${colors.bg.green}${colors.fg.black} npx nitya deploy and top up your wallet with turbo credits ${colors.reset}`);
 } else {
   console.log(`${colors.bg.green}${colors.fg.black} Granting controller access and top up your wallet with turbo credits ${colors.reset}`);
 }
