@@ -224,38 +224,58 @@ async function main() {
   const walletPath = path.join(projectDir, 'wallet.json');
 
   let walletAddress = '';
-  
+  let existingWalletPath = null;
+  let existingWalletAddress = null;
+
+  // Check for existing config to reuse wallet if possible
+  const configPath = path.join(process.cwd(), '.perma-deploy', 'config.json');
+  if (fs.existsSync(configPath)) {
+    try {
+      const existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (existingConfig.sigType === 'arweave' && existingConfig.walletPath && fs.existsSync(existingConfig.walletPath)) {
+        existingWalletPath = existingConfig.walletPath;
+        existingWalletAddress = existingConfig.walletAddress;
+      }
+    } catch (error) {
+      console.warn(`${colors.fg.yellow}⚠ Warning: Could not read existing config.json for wallet check - ${error.message}. Proceeding with new wallet if needed.${colors.reset}`);
+    }
+  }
+
   // Handle wallet creation based on sig-type
   if (sigType === 'arweave') {
-    console.log(`\n${colors.bright}${colors.fg.yellow}╔════ CREATING ARWEAVE WALLET ════╗${colors.reset}`);
+    console.log(`\n${colors.bright}${colors.fg.yellow}╔════ ARWEAVE WALLET SETUP ════╗${colors.reset}`);
     
-    // Validate base64 seed
-    let seedBuffer;
-    try {
-      seedBuffer = Buffer.from(argv.seed, 'base64');
-      if (seedBuffer.length !== 32) throw new Error('Seed must be 32 bytes.');
-    } catch (error) {
-      console.error(`${colors.fg.red}✗ Error: Invalid base64 seed - ${error.message}${colors.reset}`);
-      process.exit(1);
+    if (existingWalletPath && existingWalletAddress) {
+      console.log(`${colors.fg.blue}Using existing wallet from: ${existingWalletPath}${colors.reset}`);
+      walletAddress = existingWalletAddress;
+    } else {
+      // Validate base64 seed
+      let seedBuffer;
+      try {
+        seedBuffer = Buffer.from(argv.seed, 'base64');
+        if (seedBuffer.length !== 32) throw new Error('Seed must be 32 bytes.');
+      } catch (error) {
+        console.error(`${colors.fg.red}✗ Error: Invalid base64 seed - ${error.message}${colors.reset}`);
+        process.exit(1);
+      }
+
+      // Show wallet generation progress
+      console.log(`${colors.fg.blue}Generating wallet...${colors.reset}`);
+      
+      for (let i = 0; i <= 100; i += 10) {
+        progressBar(i);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Initialize Arweave
+      const arweave = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
+      const wallet = await arweave.wallets.generate(); // Generate JWK
+      walletAddress = await arweave.wallets.jwkToAddress(wallet);
+
+      // Save wallet to ~/.permaweb/<project-name>/wallet.json
+      fs.writeFileSync(walletPath, JSON.stringify(wallet, null, 2));
+      console.log(`\n${colors.fg.green}✓ Arweave wallet saved to:${colors.reset} ${walletPath}`);
     }
-
-    // Show wallet generation progress
-    console.log(`${colors.fg.blue}Generating wallet...${colors.reset}`);
-    
-    for (let i = 0; i <= 100; i += 10) {
-      progressBar(i);
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    // Initialize Arweave
-    const arweave = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
-    const wallet = await arweave.wallets.generate(); // Generate JWK
-    walletAddress = await arweave.wallets.jwkToAddress(wallet);
-
-    // Save wallet to ~/.permaweb/<project-name>/wallet.json
-    fs.writeFileSync(walletPath, JSON.stringify(wallet, null, 2));
-    console.log(`\n${colors.fg.green}✓ Arweave wallet saved to:${colors.reset} ${walletPath}`);
-  
 
     // Make wallet address copyable
     console.log(`\n${colors.bright}${colors.fg.yellow}╔════ WALLET ADDRESS ════╗${colors.reset}`);
@@ -277,9 +297,9 @@ async function main() {
   }
 
   // Save config
-  const config = {
+  let config = {
     projectName,
-    walletPath: sigType === 'arweave' ? walletPath : null,
+    walletPath: sigType === 'arweave' ? (existingWalletPath || walletPath) : null,
     buildCommand: argv.build || '',
     deployBranch: argv.branch || 'main',
     arnsName: argv.arns || null,
@@ -289,9 +309,36 @@ async function main() {
     sigType,
     walletAddress
   };
-  
-  console.log(`${colors.fg.blue}Saving configuration...${colors.reset}`);
-  fs.writeFileSync(path.join(permaDeployDir, 'config.json'), JSON.stringify(config, null, 2));
+
+  // Check if config.json already exists
+  if (fs.existsSync(configPath)) {
+    console.log(`${colors.fg.blue}Updating existing configuration...${colors.reset}`);
+    try {
+      const existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      // Merge new config with existing, only updating provided fields
+      config = {
+        ...existingConfig,
+        projectName: argv['project-name'] !== path.basename(process.cwd()) ? projectName : existingConfig.projectName,
+        walletPath: sigType === 'arweave' ? (existingWalletPath || walletPath) : null,
+        buildCommand: argv.build !== undefined ? argv.build : existingConfig.buildCommand,
+        deployBranch: argv.branch !== undefined ? argv.branch : existingConfig.deployBranch,
+        arnsName: argv.arns !== undefined ? argv.arns : existingConfig.arnsName,
+        undername: argv.undername !== undefined ? argv.undername : existingConfig.undername,
+        antProcess: argv['ant-process'] !== undefined ? argv['ant-process'] : existingConfig.antProcess,
+        deployFolder: argv['deploy-folder'] !== undefined ? argv['deploy-folder'] : existingConfig.deployFolder,
+        sigType: argv['sig-type'] !== undefined ? sigType : existingConfig.sigType,
+        walletAddress: walletAddress || existingConfig.walletAddress
+      };
+    } catch (error) {
+      console.warn(`${colors.fg.yellow}⚠ Warning: Could not read existing config.json - ${error.message}. Creating new config.${colors.reset}`);
+    }
+  } else {
+    console.log(`${colors.fg.blue}Creating new configuration...${colors.reset}`);
+  }
+
+  // Write the updated or new config
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  console.log(`${colors.fg.green}✓ Configuration saved to: ${configPath}${colors.reset}`);
   
   // Create deploy script in package.json
   try {
@@ -305,18 +352,18 @@ async function main() {
       if (!packageJson.scripts) packageJson.scripts = {};
       
       let deployCommand = 'perma-deploy';
-      if (argv['ant-process']) {
-        deployCommand += ` --ant-process ${argv['ant-process']}`;
+      if (config.antProcess) {
+        deployCommand += ` --ant-process ${config.antProcess}`;
       }
-      if (argv.undername) {
-        deployCommand += ` --undername ${argv.undername}`;
+      if (config.undername) {
+        deployCommand += ` --undername ${config.undername}`;
       }
       
       packageJson.scripts['deploy'] = deployCommand;
       
       // Add build and deploy combined script only if build command is provided
-      if (argv.build) {
-        packageJson.scripts['build-and-deploy'] = `${argv.build} && npx nitya deploy`;
+      if (config.buildCommand) {
+        packageJson.scripts['build-and-deploy'] = `${config.buildCommand} && npx nitya deploy`;
       }
       
       fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
@@ -364,21 +411,21 @@ npx nitya deploy
 This project is configured to deploy to Arweave using the perma-deploy tools.
 
 ### Configuration
-- Project name: ${projectName}
-- Build command: ${argv.build || ''}
-- Deploy branch: ${argv.branch || 'main'}
-- Deploy folder: ${argv['deploy-folder'] || 'dist'}
-- Signer type: ${sigType}
-${argv.arns ? `- ARNS name: ${argv.arns}` : ''}
-${argv.undername ? `- Undername: ${argv.undername}` : ''}
-${argv['ant-process'] ? `- ANT process: ${argv['ant-process']}` : ''}
+- Project name: ${config.projectName}
+- Build command: ${config.buildCommand || ''}
+- Deploy branch: ${config.deployBranch || 'main'}
+- Deploy folder: ${config.deployFolder || 'dist'}
+- Signer type: ${config.sigType}
+${config.arnsName ? `- ARNS name: ${config.arnsName}` : ''}
+${config.undername ? `- Undername: ${config.undername}` : ''}
+${config.antProcess ? `- ANT process: ${config.antProcess}` : ''}
 
 ### Deployment Instructions
 
 1. Make sure your environment is properly set up:
-   ${sigType === 'arweave' ? 
-     `- The wallet at ${walletPath} should be funded with AR or Turbo credits.` : 
-     `- Set the DEPLOY_KEY environment variable with your ${sigType} private key.`}
+   ${config.sigType === 'arweave' ? 
+     `- The wallet at ${config.walletPath} should be funded with AR or Turbo credits.` : 
+     `- Set the DEPLOY_KEY environment variable with your ${config.sigType} private key.`}
 
 2. Deploy your application:
    \`\`\`
@@ -392,19 +439,19 @@ ${argv['auto-deploy'] ? '**Note:** This project is configured to automatically d
   }
 
   console.log(`\n${colors.bright}${colors.fg.green}╔════ SETUP COMPLETE! ════╗${colors.reset}`);
-  console.log(`${colors.fg.white}● Config saved to: ${path.join(permaDeployDir, 'config.json')}${colors.reset}`);
+  console.log(`${colors.fg.white}● Config saved to: ${configPath}${colors.reset}`);
 
   // Check if any of these properties are defined in the config
   const hasAntConfig = config.antProcess !== null && config.antProcess !== undefined;
   const hasArnsName = config.arnsName !== null && config.arnsName !== undefined;
   const hasUndername = config.undername !== null && config.undername !== undefined;
 
-  if (argv['ant-process']) {
+  if (config.antProcess) {
     console.log(`\n${colors.fg.white}Your app will be deployed to: https://arweave.net/[YOUR_TX_ID]${colors.reset}`);
-    if (argv.arns && argv.undername) {
-      console.log(`${colors.fg.white}And will be accessible via: ${argv.undername}_${argv.arns}.ar.io${colors.reset}`);
-    } else if (argv.arns) {
-      console.log(`${colors.fg.white}And will be accessible via: ${argv.arns}.ar${colors.reset}`);
+    if (config.arnsName && config.undername) {
+      console.log(`${colors.fg.white}And will be accessible via: ${config.undername}_${config.arnsName}.ar.io${colors.reset}`);
+    } else if (config.arnsName) {
+      console.log(`${colors.fg.white}And will be accessible via: ${config.arnsName}.ar${colors.reset}`);
     }
   }
 
