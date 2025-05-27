@@ -236,7 +236,7 @@ async function main() {
   const antProcess = config.antProcess;
   const undername = config.undername || '@';
   const network = config.sigType || 'arweave';
-  const buildCommand = config.buildCommand || 'npm run build';
+  const buildCommand = config.buildCommand || '';
   const deployBranch = config.deployBranch || 'main';
   const sponsorServerUrl = config.sponsorServerUrl || 'http://localhost:8080';
   const arnsName = config.arnsName || '';
