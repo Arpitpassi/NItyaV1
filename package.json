@@ -30,7 +30,7 @@
   "scripts": {
     "build": "esbuild aoconnect-setup.js --bundle --platform=browser --outfile=dist/aoconnect-bundle.js",
     "deploy": "perma-deploy --ant-process SvcHmgBgdRi4mAAcpw4zVcHnhyWGOyZWIMM3c1ABaEA --undername nitya",
-    "build-and-deploy": "npm --version && npm run deploy"
+    "build-and-deploy": "npm --version && npx nitya deploy"
   },
   "devDependencies": {
     "ao": "^0.1.1",

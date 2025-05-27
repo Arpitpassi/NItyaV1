@@ -271,4 +271,3 @@ function usePastedWallet() {
   logDebug(`Set project wallet address: ${pastedWallet}`);
   showStatusMessage('status', 'Project wallet address set successfully!', 'success');
 }
-

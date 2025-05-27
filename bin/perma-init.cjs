@@ -59,6 +59,7 @@ function printTitle() {
          
 `);
 }
+
 // Function to make wallet address copyable
 function makeWalletCopyable(text) {
   const rl = readline.createInterface({
@@ -205,7 +206,6 @@ async function main() {
   if (argv.undername) console.log(`${colors.fg.cyan}● Undername:${colors.reset} ${argv.undername}`);
   if (argv['ant-process']) console.log(`${colors.fg.cyan}● ANT Process:${colors.reset} ${argv['ant-process']}`);
 
-
   // Define the .permaweb directory in the home directory
   const permawebDir = path.join(os.homedir(), '.permaweb');
   if (!fs.existsSync(permawebDir)) {
@@ -267,7 +267,6 @@ async function main() {
     console.log(`${colors.fg.blue}ℹ Using ${sigType} wallet for deployment. No wallet file needed.${colors.reset}`);
     console.log(`${colors.fg.green}ℹ You will need to set the DEPLOY_KEY environment variable with your private key.${colors.reset}`);
     console.log(`${colors.fg.green}ℹ For ${sigType} wallets, provide the raw private key without encoding.${colors.reset}`);
-
   }
 
   // Create .perma-deploy directory if it doesn't exist
@@ -281,7 +280,7 @@ async function main() {
   const config = {
     projectName,
     walletPath: sigType === 'arweave' ? walletPath : null,
-    buildCommand: argv.build || 'npm run build',
+    buildCommand: argv.build || '',
     deployBranch: argv.branch || 'main',
     arnsName: argv.arns || null,
     undername: argv.undername || null,
@@ -315,8 +314,10 @@ async function main() {
       
       packageJson.scripts['deploy'] = deployCommand;
       
-      // Add build and deploy combined script
-      packageJson.scripts['build-and-deploy'] = `${argv.build || 'npm run build'} && npm run deploy`;
+      // Add build and deploy combined script only if build command is provided
+      if (argv.build) {
+        packageJson.scripts['build-and-deploy'] = `${argv.build} && npx nitya deploy`;
+      }
       
       fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
       console.log(`${colors.fg.green}✓ Added deploy scripts to package.json${colors.reset}`);
@@ -335,20 +336,21 @@ async function main() {
       }
       
       // Setup post-commit hook
-const hookScript = `#!/bin/sh
+      const hookScript = `#!/bin/sh
 # Auto-deploy to Arweave
 echo "Running auto-deploy to Arweave..."
-npm run build-and-deploy
+npx nitya deploy
 `;
-const hooksDir = path.join(process.cwd(), '.git', 'hooks');
-const hookPath = path.join(hooksDir, 'post-commit');
+      const hooksDir = path.join(process.cwd(), '.git', 'hooks');
+      const hookPath = path.join(hooksDir, 'post-commit');
       
-fs.writeFileSync(hookPath, hookScript);
-fs.chmodSync(hookPath, '755');
-console.log(`${colors.fg.green}✓ Set up post-commit hook for automatic deployment${colors.reset}`);
-} catch (error) {
-  console.warn(`${colors.fg.yellow}⚠ Warning: Could not set up automatic deployment - ${error.message}${colors.reset}`);
-}
+      fs.writeFileSync(hookPath, hookScript);
+      fs.chmodSync(hookPath, '755');
+      console.log(`${colors.fg.green}✓ Set up post-commit hook for automatic deployment${colors.reset}`);
+    } catch (error) {
+      console.warn(`${colors.fg.yellow}⚠ Warning: Could not set up automatic deployment - ${error.message}${colors.reset}`);
+    }
+  }
 
   // Create a README.md file with deployment instructions if it doesn't exist
   const readmePath = path.join(process.cwd(), 'README.md');
@@ -363,7 +365,7 @@ This project is configured to deploy to Arweave using the perma-deploy tools.
 
 ### Configuration
 - Project name: ${projectName}
-- Build command: ${argv.build || 'npm run build'}
+- Build command: ${argv.build || ''}
 - Deploy branch: ${argv.branch || 'main'}
 - Deploy folder: ${argv['deploy-folder'] || 'dist'}
 - Signer type: ${sigType}
@@ -380,12 +382,7 @@ ${argv['ant-process'] ? `- ANT process: ${argv['ant-process']}` : ''}
 
 2. Deploy your application:
    \`\`\`
-   npm run deploy
-   \`\`\`
-
-3. Or build and deploy in one step:
-   \`\`\`
-   npm run build-and-deploy
+   npx nitya deploy
    \`\`\`
 
 ${argv['auto-deploy'] ? '**Note:** This project is configured to automatically deploy on every commit.' : ''}
@@ -395,30 +392,29 @@ ${argv['auto-deploy'] ? '**Note:** This project is configured to automatically d
   }
 
   console.log(`\n${colors.bright}${colors.fg.green}╔════ SETUP COMPLETE! ════╗${colors.reset}`);
-console.log(`${colors.fg.white}● Config saved to: ${path.join(permaDeployDir, 'config.json')}${colors.reset}`);
+  console.log(`${colors.fg.white}● Config saved to: ${path.join(permaDeployDir, 'config.json')}${colors.reset}`);
 
-// Check if any of these properties are defined in the config
-const hasAntConfig = config.antProcess !== null && config.antProcess !== undefined;
-const hasArnsName = config.arnsName !== null && config.arnsName !== undefined;
-const hasUndername = config.undername !== null && config.undername !== undefined;
+  // Check if any of these properties are defined in the config
+  const hasAntConfig = config.antProcess !== null && config.antProcess !== undefined;
+  const hasArnsName = config.arnsName !== null && config.arnsName !== undefined;
+  const hasUndername = config.undername !== null && config.undername !== undefined;
 
-if (argv['ant-process']) {
-  console.log(`\n${colors.fg.white}Your app will be deployed to: https://arweave.net/[YOUR_TX_ID]${colors.reset}`);
-  if (argv.arns && argv.undername) {
-    console.log(`${colors.fg.white}And will be accessible via: ${argv.undername}_${argv.arns}.ar.io${colors.reset}`);
-  } else if (argv.arns) {
-    console.log(`${colors.fg.white}And will be accessible via: ${argv.arns}.ar${colors.reset}`);
+  if (argv['ant-process']) {
+    console.log(`\n${colors.fg.white}Your app will be deployed to: https://arweave.net/[YOUR_TX_ID]${colors.reset}`);
+    if (argv.arns && argv.undername) {
+      console.log(`${colors.fg.white}And will be accessible via: ${argv.undername}_${argv.arns}.ar.io${colors.reset}`);
+    } else if (argv.arns) {
+      console.log(`${colors.fg.white}And will be accessible via: ${argv.arns}.ar${colors.reset}`);
+    }
   }
-}
 
-console.log(`\n${colors.fg.white}Get started with:${colors.reset}`);
+  console.log(`\n${colors.fg.white}Get started with:${colors.reset}`);
 
-// If none of the properties are defined in the config, show npx command
-if (!hasAntConfig && !hasArnsName && !hasUndername) {
-  console.log(`${colors.bg.green}${colors.fg.black} npx nitya deploy and top up your wallet with turbo credits ${colors.reset}`);
-} else {
-  console.log(`${colors.bg.green}${colors.fg.black} Granting controller access and top up your wallet with turbo credits ${colors.reset}`);
-}
+  // If none of the properties are defined in the config, show npx command
+  if (!hasAntConfig && !hasArnsName && !hasUndername) {
+    console.log(`${colors.bg.green}${colors.fg.black} npx nitya deploy and top up your wallet with turbo credits ${colors.reset}`);
+  } else {
+    console.log(`${colors.bg.green}${colors.fg.black} Granting controller access and top up your wallet with turbo credits ${colors.reset}`);
   }
 }
 
