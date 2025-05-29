@@ -300,12 +300,12 @@ async function main() {
     fs.mkdirSync(permaDeployDir);
   }
 
-  // Save config
+  // Prepare new config with provided arguments
   let config = {
     projectName,
     walletPath: sigType === 'arweave' ? (existingWalletPath || walletPath) : null,
-    buildCommand: argv.build || 'npm --version',
-    deployBranch: argv.branch || 'main',
+    buildCommand: argv.build || null,
+    deployBranch: argv.branch || null,
     arnsName: argv.arns || null,
     undername: argv.undername || null,
     antProcess: argv['ant-process'] || null,
@@ -320,11 +320,15 @@ async function main() {
     console.log(`${colors.fg.blue}Updating existing configuration...${colors.reset}`);
     try {
       const existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      // Merge new config with existing, only updating provided fields
+      // Update only the fields provided in the command, preserve existing values for others
       config = {
         ...existingConfig,
+        // Update projectName only if explicitly provided (not default)
         projectName: argv['project-name'] !== path.basename(process.cwd()) ? projectName : existingConfig.projectName,
-        walletPath: sigType === 'arweave' ? (existingWalletPath || walletPath) : null,
+        // Preserve existing walletPath and walletAddress if they exist
+        walletPath: existingConfig.walletPath || config.walletPath,
+        walletAddress: existingConfig.walletAddress || config.walletAddress,
+        // Update fields only if provided in the command
         buildCommand: argv.build !== undefined ? argv.build : existingConfig.buildCommand,
         deployBranch: argv.branch !== undefined ? argv.branch : existingConfig.deployBranch,
         arnsName: argv.arns !== undefined ? argv.arns : existingConfig.arnsName,
@@ -332,7 +336,6 @@ async function main() {
         antProcess: argv['ant-process'] !== undefined ? argv['ant-process'] : existingConfig.antProcess,
         deployFolder: argv['deploy-folder'] !== undefined ? argv['deploy-folder'] : existingConfig.deployFolder,
         sigType: argv['sig-type'] !== undefined ? sigType : existingConfig.sigType,
-        walletAddress: walletAddress || existingConfig.walletAddress,
         eventPoolId: argv['event-pool-id'] !== undefined ? argv['event-pool-id'] : existingConfig.eventPoolId,
       };
     } catch (error) {
@@ -398,14 +401,14 @@ npx nitya deploy
       const hookPath = path.join(hooksDir, 'post-commit');
       
       if (!fs.existsSync(hooksDir)) {
+        fs.mkdirSync(hooksDir);
+      }
       // Validate hookScript content for compatibility
       if (!hookScript.startsWith('#!/bin/sh')) {
         console.error(`${colors.fg.red}Error: Hook script is not compatible with the shell environment. Ensure it starts with #!/bin/sh.${colors.reset}`);
         process.exit(1);
       }
 
-      fs.writeFileSync(hookPath, hookScript);
-      }
       fs.writeFileSync(hookPath, hookScript);
       fs.chmodSync(hookPath, '755');
       console.log(`${colors.fg.green}✓ Set up post-commit hook for automatic deployment${colors.reset}`);
