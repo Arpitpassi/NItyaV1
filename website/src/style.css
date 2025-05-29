@@ -17,7 +17,7 @@
   --text-light: #222222;
   --accent-light: #0077B6;
   --secondary-accent-light: #D000D0;
-  --highlight-light: #008000;
+  --highlight-light: #0fbc4f;
   --neon-pink: #FF69B4;
   --neon-blue: #ffffff;
   --neon-green: #00FF7F;
@@ -358,7 +358,7 @@ section {
   border-radius: 8px;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
   transition: all 0.3s ease;
-  border: 2px solid #00ffe1;
+  border: 2px solid #ffffff;
 }
 
 .light-mode .configuration-form,
@@ -541,8 +541,8 @@ section {
 .help-section .btn:hover {
   background-color: var(--neon-pink);
   color: var(--primary-dark);
-  transform: scale(1.05);
-  box-shadow: 0 0 15px var(--neon-pink);
+  transform: scale(1.02);
+  box-shadow: 0 0 5px var(--neon-pink);
 }
 
 .light-mode .form-step .btn,
@@ -557,7 +557,7 @@ section {
 .light-mode .help-section .btn:hover {
   background-color: var(--light-accent);
   color: var(--light-bg);
-  box-shadow: 0 0 15px var(--light-accent);
+  box-shadow: 0 0 5px var(--light-accent);
 }
 
 .generate-btn-large {
@@ -571,8 +571,8 @@ section {
 .generate-btn-large:hover {
   background: var(--neon-pink);
   color: var(--primary-dark);
-  transform: scale(1.05);
-  box-shadow: 0 0 15px var(--neon-pink);
+  transform: scale(1.02);
+  box-shadow: 0 0 5px var(--neon-pink);
 }
 
 .light-mode .generate-btn-large {
@@ -900,4 +900,63 @@ body.light-mode .grid-background {
     width: 100%;
   }
 }
+/*test*/
 
+#eventPoolFields {
+  margin-top: 0.5rem;
+  padding-left: 1.5rem; /* Indent to align with checkbox */
+}
+
+#eventPoolFields .form-group {
+  margin-bottom: 1rem;
+}
+
+#eventPoolFields label {
+  display: block;
+  margin: 0.8rem 0 0.3rem;
+  color: var(--neon-blue);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.light-mode #eventPoolFields label {
+  color: var(--light-accent);
+}
+
+#eventPoolFields input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid var(--neon-blue);
+  color: var(--text-dark);
+  padding: 0.8rem;
+  width: 100%;
+  border-radius: 4px;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.light-mode #eventPoolFields input {
+  background: rgba(0, 0, 0, 0.05);
+  border: 2px solid var(--light-border);
+  color: var(--light-text);
+}
+
+#eventPoolFields input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.light-mode #eventPoolFields input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+#eventPoolFields input:focus {
+  border-color: var(--neon-pink);
+  outline: none;
+  box-shadow: 0 0 8px rgba(255, 105, 180, 0.5);
+}
+
+.light-mode #eventPoolFields input:focus {
+  border-color: var(--light-accent);
+  box-shadow: 0 0 8px rgba(75, 0, 130, 0.5);
+}

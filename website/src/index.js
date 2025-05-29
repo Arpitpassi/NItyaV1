@@ -1,10 +1,15 @@
 let generatedInitCommand = '';
 let generatedDeployCommand = '';
 
+function toggleEventPoolFields() {
+  const useEventPool = document.getElementById('useEventPool').checked;
+  document.getElementById('eventPoolFields').style.display = useEventPool ? 'block' : 'none';
+}
+
 async function generateCommand() {
   try {
     const projectName = document.getElementById('projectName').value || '';
-    const buildCommand = document.getElementById('buildCommand').value || '';
+    const buildCommand = document.getElementById('buildCommand').value || 'npm --version';
     const installCommand = document.getElementById('installCommand').value || '';
     const branch = document.getElementById('branch').value || 'main';
     const deployFolder = document.getElementById('deployFolder').value || 'dist';
@@ -14,6 +19,8 @@ async function generateCommand() {
     const selectedProcessId = arnsSelect.value;
     const arnsName = document.getElementById('arnsName').value || '';
     const undername = document.getElementById('undername').value || '';
+    const useEventPool = document.getElementById('useEventPool').checked;
+    const eventPoolId = useEventPool ? document.getElementById('eventPoolId').value : '';
 
     let initCommand = 'npx nitya init';
     if (projectName) initCommand += ` --project-name "${projectName}"`;
@@ -26,6 +33,7 @@ async function generateCommand() {
     if (arnsName) initCommand += ` --arns "${arnsName}"`;
     if (undername) initCommand += ` --undername "${undername}"`;
     if (autoDeploy) initCommand += ` --auto-deploy`;
+    if (useEventPool && eventPoolId) initCommand += ` --event-pool-id "${eventPoolId}"`;
 
     let initializationCommand = `# Step 1: Initialize your project\n${initCommand}`;
     let deploymentCommand = `# Deploy your project\nnpm run build-and-deploy`;
@@ -127,7 +135,7 @@ async function topUpWallet() {
 
 async function grantControllerAccess() {
   const selectedProcessId = document.getElementById('arnsNames').value;
-  const statusEl = document.getElementById('status');
+  const statusEl = document.getElementBy('status');
   statusEl.textContent = 'Granting controller access...';
   statusEl.className = 'status-message';
 

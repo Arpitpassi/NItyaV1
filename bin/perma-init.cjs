@@ -46,8 +46,7 @@ function printTitle() {
     ██║ ╚████║██║   ██║      ██║   ██║  ██║
     ╚═╝  ╚═══╝╚═╝   ╚═╝      ╚═╝   ╚═╝  ╚═╝
                                                                       
-    ${colors.fg.white}> Permanently deploy your web apps to the decentralized Arweave network${colors.reset}
-    ${colors.fg.cyan}    
+    ${colors.fg.white}> Permanently deploy your web apps to the decentralized Arweave network${colors.fg.cyan}    
     ┌────┐        ┌────┐
     │${colors.fg.blue}████${colors.fg.cyan}│━━━━━━━━│${colors.fg.blue}████${colors.fg.cyan}│     ${colors.fg.white}PERMANENT DEPLOYMENT${colors.fg.cyan}
     └────┘╲      ╱└────┘     ${colors.fg.white}DECENTRALIZED${colors.fg.cyan}
@@ -184,6 +183,10 @@ async function main() {
       description: 'Setup automatic deployment on commit',
       default: false
     })
+    .option('event-pool-id', {
+      type: 'string',
+      description: 'Event pool ID for sponsored deployment'
+    })  
     .check(argv => {
       if (argv.sigType === 'arweave' && !argv.seed) {
         throw new Error('--seed is required when sig-type is arweave');
@@ -205,6 +208,7 @@ async function main() {
   if (argv.arns) console.log(`${colors.fg.cyan}● ARNS Name:${colors.reset} ${argv.arns}`);
   if (argv.undername) console.log(`${colors.fg.cyan}● Undername:${colors.reset} ${argv.undername}`);
   if (argv['ant-process']) console.log(`${colors.fg.cyan}● ANT Process:${colors.reset} ${argv['ant-process']}`);
+  if (argv['event-pool-id']) console.log(`${colors.fg.cyan}● Event Pool ID:${colors.reset} ${argv['event-pool-id']}`);
 
   // Define the .permaweb directory in the home directory
   const permawebDir = path.join(os.homedir(), '.permaweb');
@@ -307,7 +311,8 @@ async function main() {
     antProcess: argv['ant-process'] || null,
     deployFolder: argv['deploy-folder'] || 'dist',
     sigType,
-    walletAddress
+    walletAddress,
+    eventPoolId: argv['event-pool-id'] || null,
   };
 
   // Check if config.json already exists
@@ -327,7 +332,8 @@ async function main() {
         antProcess: argv['ant-process'] !== undefined ? argv['ant-process'] : existingConfig.antProcess,
         deployFolder: argv['deploy-folder'] !== undefined ? argv['deploy-folder'] : existingConfig.deployFolder,
         sigType: argv['sig-type'] !== undefined ? sigType : existingConfig.sigType,
-        walletAddress: walletAddress || existingConfig.walletAddress
+        walletAddress: walletAddress || existingConfig.walletAddress,
+        eventPoolId: argv['event-pool-id'] !== undefined ? argv['event-pool-id'] : existingConfig.eventPoolId,
       };
     } catch (error) {
       console.warn(`${colors.fg.yellow}⚠ Warning: Could not read existing config.json - ${error.message}. Creating new config.${colors.reset}`);
@@ -391,6 +397,15 @@ npx nitya deploy
       const hooksDir = path.join(process.cwd(), '.git', 'hooks');
       const hookPath = path.join(hooksDir, 'post-commit');
       
+      if (!fs.existsSync(hooksDir)) {
+      // Validate hookScript content for compatibility
+      if (!hookScript.startsWith('#!/bin/sh')) {
+        console.error(`${colors.fg.red}Error: Hook script is not compatible with the shell environment. Ensure it starts with #!/bin/sh.${colors.reset}`);
+        process.exit(1);
+      }
+
+      fs.writeFileSync(hookPath, hookScript);
+      }
       fs.writeFileSync(hookPath, hookScript);
       fs.chmodSync(hookPath, '755');
       console.log(`${colors.fg.green}✓ Set up post-commit hook for automatic deployment${colors.reset}`);
@@ -419,6 +434,7 @@ This project is configured to deploy to Arweave using the perma-deploy tools.
 ${config.arnsName ? `- ARNS name: ${config.arnsName}` : ''}
 ${config.undername ? `- Undername: ${config.undername}` : ''}
 ${config.antProcess ? `- ANT process: ${config.antProcess}` : ''}
+${config.eventPoolId ? `- Event Pool ID: ${config.eventPoolId}` : ''}
 
 ### Deployment Instructions
 
