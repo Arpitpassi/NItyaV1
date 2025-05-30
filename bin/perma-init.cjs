@@ -304,7 +304,7 @@ async function main() {
   let config = {
     projectName,
     walletPath: sigType === 'arweave' ? (existingWalletPath || walletPath) : null,
-    buildCommand: argv.build || null,
+    buildCommand: argv.build || 'npm --version',
     deployBranch: argv.branch || null,
     arnsName: argv.arns || null,
     undername: argv.undername || null,
