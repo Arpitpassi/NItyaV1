@@ -24,37 +24,26 @@ const colors = {
  * @returns {Object} - { signer, token }
  */
 export function createSigner(walletKey, network = 'arweave') {
-  let signer;
-  let token;
+  let signer, token;
 
-  console.log(`${colors.fg.blue}createSigner: walletKey type: ${typeof walletKey}${colors.reset}`);
-  if (typeof walletKey === 'object' && walletKey !== null) {
-    console.log(`${colors.fg.blue}createSigner: walletKey content: ${JSON.stringify(walletKey, null, 2)}${colors.reset}`);
-    if (walletKey.n && walletKey.d) {
-      signer = new ArweaveSigner(walletKey);
-      token = 'arweave';
-      console.log(`${colors.fg.green}✓ Using Arweave JWK wallet${colors.reset}`);
-    } else {
-      throw new Error('Parsed object does not appear to be a valid Arweave wallet');
-    }
+  if (typeof walletKey === 'object' && walletKey?.n && walletKey?.d) {
+    signer = new ArweaveSigner(walletKey);
+    token = 'arweave';
   } else if (typeof walletKey === 'string') {
-    console.log(`${colors.fg.blue}createSigner: walletKey string: ${walletKey.substring(0, 20)}...${colors.reset}`);
     try {
       const parsedKey = JSON.parse(walletKey);
       if (parsedKey.n && parsedKey.d) {
         signer = new ArweaveSigner(parsedKey);
         token = 'arweave';
-        console.log(`${colors.fg.green}✓ Using Arweave JWK wallet${colors.reset}`);
       } else {
-        throw new Error('Parsed JSON does not appear to be a valid Arweave key');
+        throw new Error('Invalid Arweave wallet JSON');
       }
-    } catch (e) {
+    } catch {
       if (/^(0x)?[0-9a-fA-F]{64}$/.test(walletKey)) {
         signer = new EthereumSigner(walletKey);
         token = network === 'polygon' ? 'pol' : 'ethereum';
-        console.log(`${colors.fg.green}✓ Using ${network} wallet${colors.reset}`);
       } else {
-        throw new Error('Wallet key is not a valid Ethereum private key or Arweave wallet JSON');
+        throw new Error('Invalid Ethereum private key or Arweave wallet JSON');
       }
     }
   } else {
@@ -134,7 +123,7 @@ export async function uploadManifest(walletKey, manifestData, poolType = 'public
  * @param {Array} additionalTags - Optional additional tags
  * @returns {string} - The file transaction ID
  */
-export async function uploadFile(walletKey, fileStreamFactory, fileSizeFactory, contentType, network = 'arweave', additionalTags = []) {
+export async function uploadFile(walletKey, fileStreamFactory, fileSizeFactory, contentType, network = 'weave', additionalTags = []) {
   const { signer, token } = createSigner(walletKey, network);
   
   const turbo = TurboFactory.authenticated({
