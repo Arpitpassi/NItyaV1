@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { execSync } from 'child_process'; // Added for getCommitHash
+import { execSync } from 'child_process';
 import { loadProjectWallet } from './wallet.js';
 import { zipFolder } from './zipper.js';
 import { signZipBuffer } from './signer.js';
@@ -21,7 +21,6 @@ const colors = {
   }
 };
 
-// Retrieve current Git commit hash
 function getCommitHash() {
   try {
     return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
@@ -33,14 +32,12 @@ function getCommitHash() {
 
 export async function deployWithSponsor(deployFolder, serverUrl, manifest, filesToUpload, showProgress, walletKey, network = 'arweave', eventPoolId = '') {
   try {
-    // Verify sponsor server availability
     const sponsorServerAvailable = await checkSponsorServer(serverUrl);
     if (!sponsorServerAvailable) {
       throw new Error('Sponsor server not available');
     }
     console.log(`${colors.fg.green}✓ Sponsor server available at ${serverUrl}${colors.reset}`);
 
-    // Load project wallet for signing, using walletKey as path if it’s a file
     let walletPath = null;
     if (walletKey && fs.existsSync(walletKey)) {
       walletPath = walletKey;
@@ -49,11 +46,9 @@ export async function deployWithSponsor(deployFolder, serverUrl, manifest, files
     const { walletData: projectWallet, walletPath: resolvedWalletPath } = await loadProjectWallet(walletPath);
     console.log(`${colors.fg.green}✓ Project wallet loaded for signing from ${resolvedWalletPath}${colors.reset}`);
 
-    // Determine pool type based on eventPoolId
     const poolType = eventPoolId ? 'event' : 'community';
     console.log(`${colors.fg.cyan}● Using pool type: ${poolType}${colors.reset}`);
 
-    // Check for changed or new files
     const filesToUploadFiltered = [];
     let skippedCount = 0;
     const normalizedManifestFiles = {};
@@ -82,21 +77,18 @@ export async function deployWithSponsor(deployFolder, serverUrl, manifest, files
       return { manifestId: manifest.lastManifestId, manifest, poolType };
     }
 
-    // Create ZIP file and sign it
     console.log(`${colors.fg.blue}Preparing deployment package...${colors.reset}`);
     showProgress("Zipping and signing files", 0);
     const zipBuffer = await zipFolder(deployFolder);
     const signatureData = await signZipBuffer(projectWallet, zipBuffer);
     showProgress("Zipping and signing files", 1);
 
-    // Validate signatureData
     if (!signatureData || !signatureData.hash || !signatureData.signature || !signatureData.publicKey || !signatureData.walletAddress) {
       throw new Error('Invalid signature data: missing required fields (hash, signature, publicKey, or walletAddress)');
     }
 
     signatureData.zipBuffer = zipBuffer;
 
-    // Upload to sponsor server with enhanced error handling
     const nonRetryableErrors = [
       'POOL_NOT_ACTIVE',
       'WALLET_NOT_WHITELISTED',
@@ -113,10 +105,9 @@ export async function deployWithSponsor(deployFolder, serverUrl, manifest, files
     ];
 
     const responseData = await uploadToSponsorServer(serverUrl, signatureData, filesToUploadFiltered, poolType, eventPoolId, showProgress, nonRetryableErrors);
-    const { poolType: returnedPoolType, uploadedFiles, poolName } = responseData;
+    const { poolType: returnedPoolType, uploadedFiles, poolName, totalCreditsSpent, usage, remainingAllowance } = responseData;
     console.log(`${colors.fg.green}✓ Files uploaded successfully${colors.reset}`);
 
-    // Initialize manifest data
     const manifestData = {
       manifest: 'arweave/paths',
       version: '0.1.0',
@@ -138,16 +129,25 @@ export async function deployWithSponsor(deployFolder, serverUrl, manifest, files
       };
     }
 
-    // Upload manifest with additional tags
     const manifestId = await uploadManifest(projectWallet, manifestData, poolType, network, showProgress);
     manifest.lastManifestId = manifestId;
 
     console.log(`${colors.fg.green}✓ Sponsored deployment completed with manifest ID: ${manifestId}${colors.reset}`);
     if (poolType === 'event' && poolName) {
-      console.log(`${colors.fg.cyan}${poolName}${colors.reset}`);
-        }
+      console.log(`${colors.fg.yellow}${poolName}${colors.reset}`);
+    } else if (poolType === 'community') {
+      console.log(`${colors.fg.yellow}You have been sponsored by the community pool.${colors.reset}`);
+    }
 
-    return { manifestId, manifest, poolType };
+    return {
+      manifestId,
+      manifest,
+      poolType: responseData.poolType,
+      poolName: responseData.poolName,
+      totalCreditsSpent: responseData.totalCreditsSpent,
+      usage: responseData.usage,
+      remainingAllowance: responseData.remainingAllowance,
+    };
   } catch (error) {
     if (error.response && error.response.data && error.response.data.code) {
       const { code, message } = error.response.data;
