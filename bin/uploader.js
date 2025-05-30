@@ -4,23 +4,17 @@ import axios from 'axios';
 import FormData from 'form-data';
 import { uploadManifest as sharedUploadManifest } from './manifest-utils.js';
 
-const colors = {
-  reset: "\x1b[0m",
-  bright: "\x1b[1m",
-  fg: {
-    red: "\x1b[31m",
-    green: "\x1b[32m",
-    blue: "\x1b[34m",
-    yellow: "\x1b[33m",
-    cyan: "\x1b[36m",
-    white: "\x1b[37m"
-  },
-  bg: {
-    blue: "\x1b[44m"
+async function checkSponsorServer(serverUrl) {
+  try {
+    const response = await axios.get(`${serverUrl}/health`, { timeout: 5000 });
+    return response.status === 200 && response.data.status === 'ok';
+  } catch (error) {
+    console.error(`Failed to connect to sponsor server: ${error.message}`);
+    return false;
   }
-};
+}
 
-export function getContentType(filePath) {
+function getContentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const mimeTypes = {
     '.html': 'text/html',
@@ -42,39 +36,9 @@ export function getContentType(filePath) {
   return mimeTypes[ext] || 'application/octet-stream';
 }
 
-export async function checkSponsorServer(url = 'http://localhost:8080') {
-  const maxRetries = 3;
-  let attempt = 1;
-
-  while (attempt <= maxRetries) {
-    try {
-      console.log(`${colors.fg.blue}Checking sponsor server (Attempt ${attempt}) at ${url}/health${colors.reset}`);
-      const headers = {
-        'X-API-Key': 'deploy-api-key-123'
-      };
-
-      const response = await axios.get(`${url}/health`, {
-        timeout: 5000,
-        headers
-      });
-      console.log(`${colors.fg.green}✓ Sponsor server responded with status ${response.status}${colors.reset}`);
-      return true;
-    } catch (error) {
-      const status = error.response?.status;
-      const message = error.response?.data?.error || error.message;
-      console.error(`${colors.fg.red}✗ Attempt ${attempt} failed: ${status ? `Status ${status}: ${message}` : error.message}${colors.reset}`);
-      if (attempt === maxRetries) {
-        throw new Error(`Sponsor server check failed after ${maxRetries} attempts: ${status ? `Status ${status}: ${message}` : error.message}`);
-      }
-      attempt++;
-      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
-    }
-  }
-}
-
-export async function uploadToSponsorServer(serverUrl, signatureData, filesToUploadFiltered, poolType, eventPoolId, showProgress) {
+async function uploadToSponsorServer(serverUrl, signatureData, filesToUploadFiltered, poolType, eventPoolId, showProgress, nonRetryableErrors) {
   try {
-    console.log(`${colors.fg.blue}Uploading to sponsor server...${colors.reset}`);
+    console.log('Uploading to sponsor server...');
     const zipPath = path.join(process.cwd(), 'deploy.zip');
     fs.writeFileSync(zipPath, signatureData.zipBuffer);
 
@@ -112,9 +76,9 @@ export async function uploadToSponsorServer(serverUrl, signatureData, filesToUpl
       showProgress("Uploading to sponsor server", uploadProgress);
     }, 300);
 
-    let response;
     const maxRetries = 3;
     let attempt = 1;
+    let response;
 
     while (attempt <= maxRetries) {
       try {
@@ -126,11 +90,19 @@ export async function uploadToSponsorServer(serverUrl, signatureData, filesToUpl
         });
         break;
       } catch (error) {
-        const status = error.response?.status;
-        const message = error.response?.data?.error || error.message;
-        console.error(`${colors.fg.red}✗ Upload attempt ${attempt} failed: ${status ? `Status ${status}: ${message}` : error.message}${colors.reset}`);
+        if (error.response && error.response.data && error.response.data.code) {
+          const { code, message } = error.response.data;
+          console.error(`✗ Upload attempt ${attempt} failed: ${message} (Code: ${code})`);
+          if (nonRetryableErrors.includes(code)) {
+            throw new Error(`${message} (Code: ${code})`);
+          }
+        } else {
+          const status = error.response?.status;
+          const message = error.response?.data?.error || error.message;
+          console.error(`✗ Upload attempt ${attempt} failed: ${status ? `Status ${status}: ${message}` : error.message}`);
+        }
         if (attempt === maxRetries) {
-          throw new Error(`Upload failed after ${maxRetries} attempts: ${status ? `Status ${status}: ${message}` : error.message}`);
+          throw new Error(`Upload failed after ${maxRetries} attempts: ${error.response?.data?.error || error.message}`);
         }
         attempt++;
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
@@ -141,16 +113,34 @@ export async function uploadToSponsorServer(serverUrl, signatureData, filesToUpl
     showProgress("Uploading to sponsor server", 1);
 
     fs.unlinkSync(zipPath);
+    console.log(`Cleaned up temporary ZIP file: ${zipPath}`);
     return response.data;
   } catch (error) {
-    if (fs.existsSync(path.join(process.cwd(), 'deploy.zip'))) {
-      fs.unlinkSync(path.join(process.cwd(), 'deploy.zip'));
+    const zipPath = path.join(process.cwd(), 'deploy.zip');
+    if (fs.existsSync(zipPath)) {
+      fs.unlinkSync(zipPath);
+      console.log(`Cleaned up temporary ZIP file: ${zipPath}`);
     }
     throw error;
   }
 }
 
-// Updated uploadManifest function that delegates to the shared utility
-export async function uploadManifest(walletKey, manifestData, poolType, network = 'arweave', showProgress = null) {
-  return await sharedUploadManifest(walletKey, manifestData, poolType, network, showProgress);
+async function uploadManifest(wallet, manifestData, poolType, network, showProgress = []) {
+  showProgress("Uploading manifest", 0);
+  try {
+    const manifestId = await sharedUploadManifest(
+      wallet,
+      manifestData,
+      poolType,
+      network,
+      (message, progress) => showProgress(message, progress),
+    );
+    showProgress("Uploading manifest", 1);
+    return manifestId;
+  } catch (error) {
+    console.error(`Failed to upload manifest: ${error.message}`);
+    throw error;
+  }
 }
+
+export { checkSponsorServer, getContentType, uploadToSponsorServer, uploadManifest };

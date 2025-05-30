@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { execSync } from 'child_process'; // Added for getCommitHash
 import { loadProjectWallet } from './wallet.js';
 import { zipFolder } from './zipper.js';
 import { signZipBuffer } from './signer.js';
@@ -19,6 +20,16 @@ const colors = {
     blue: "\x1b[44m"
   }
 };
+
+// Retrieve current Git commit hash
+function getCommitHash() {
+  try {
+    return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+  } catch (error) {
+    console.warn(`${colors.fg.yellow}Warning: Could not retrieve commit hash. Using "unknown".${colors.reset}`);
+    return 'unknown';
+  }
+}
 
 export async function deployWithSponsor(deployFolder, serverUrl, manifest, filesToUpload, showProgress, walletKey, network = 'arweave', eventPoolId = '') {
   try {
@@ -85,9 +96,24 @@ export async function deployWithSponsor(deployFolder, serverUrl, manifest, files
 
     signatureData.zipBuffer = zipBuffer;
 
-    // Upload to sponsor server
-    const responseData = await uploadToSponsorServer(serverUrl, signatureData, filesToUploadFiltered, poolType, eventPoolId, showProgress);
-    const { poolType: returnedPoolType, uploadedFiles, poolName, remainingBalance, equivalentFileSize } = responseData;
+    // Upload to sponsor server with enhanced error handling
+    const nonRetryableErrors = [
+      'POOL_NOT_ACTIVE',
+      'WALLET_NOT_WHITELISTED',
+      'USAGE_CAP_EXCEEDED',
+      'INVALID_POOL_ID',
+      'MISSING_POOL_ID',
+      'WALLET_ADDRESS_MISMATCH',
+      'INVALID_SIGNATURE',
+      'HASH_MISMATCH',
+      'NO_ZIP_FILE',
+      'TOTAL_SIZE_EXCEEDED',
+      'INVALID_FILE_TYPE',
+      'FILE_NOT_FOUND_IN_ZIP'
+    ];
+
+    const responseData = await uploadToSponsorServer(serverUrl, signatureData, filesToUploadFiltered, poolType, eventPoolId, showProgress, nonRetryableErrors);
+    const { poolType: returnedPoolType, uploadedFiles, poolName } = responseData;
     console.log(`${colors.fg.green}✓ Files uploaded successfully${colors.reset}`);
 
     // Initialize manifest data
@@ -112,26 +138,67 @@ export async function deployWithSponsor(deployFolder, serverUrl, manifest, files
       };
     }
 
-    // Validate projectWallet before uploading manifest
-    //console.log('projectWallet:', JSON.stringify(projectWallet, null, 2));
-    //if (!projectWallet || (typeof projectWallet === 'object' && (!projectWallet.n || !projectWallet.d))) {
-     // throw new Error('Invalid projectWallet: missing required Arweave JWK fields (n, d)');
-    //}
-
-    // Upload manifest to Arweave using projectWallet
+    // Upload manifest with additional tags
     const manifestId = await uploadManifest(projectWallet, manifestData, poolType, network, showProgress);
     manifest.lastManifestId = manifestId;
 
     console.log(`${colors.fg.green}✓ Sponsored deployment completed with manifest ID: ${manifestId}${colors.reset}`);
     if (poolType === 'event' && poolName) {
       console.log(`${colors.fg.cyan}${poolName}${colors.reset}`);
-      console.log(`${colors.fg.cyan}Remaining Pool Balance: ${remainingBalance} Turbo Credits${colors.reset}`);
-      console.log(`${colors.fg.cyan}Equivalent File Size: ${Math.round(equivalentFileSize / (1024 * 1024))} MB${colors.reset}`);
-    }
+        }
 
     return { manifestId, manifest, poolType };
   } catch (error) {
-    console.error(`${colors.fg.red}Sponsor deployment failed: ${error.message}${colors.reset}`);
+    if (error.response && error.response.data && error.response.data.code) {
+      const { code, message } = error.response.data;
+      switch (code) {
+        case 'POOL_NOT_ACTIVE':
+          console.error(`${colors.fg.red}✗ Deployment failed: The specified pool is not currently active. Please check the pool's active period or contact the pool administrator.${colors.reset}`);
+          break;
+        case 'WALLET_NOT_WHITELISTED':
+          console.error(`${colors.fg.red}✗ Deployment failed: Your wallet is not authorized to use this pool. Ensure your wallet is whitelisted or select a different pool.${colors.reset}`);
+          break;
+        case 'USAGE_CAP_EXCEEDED':
+          console.error(`${colors.fg.red}✗ Deployment failed: You have reached the usage limit for this pool. Consider using a different pool or contact the administrator.${colors.reset}`);
+          break;
+        case 'INVALID_POOL_ID':
+          console.error(`${colors.fg.red}✗ Deployment failed: The specified pool ID is invalid. Please provide a valid pool ID.${colors.reset}`);
+          break;
+        case 'MISSING_POOL_ID':
+          console.error(`${colors.fg.red}✗ Deployment failed: Event pool requires a valid pool ID. Please provide one.${colors.reset}`);
+          break;
+        case 'WALLET_ADDRESS_MISMATCH':
+          console.error(`${colors.fg.red}✗ Deployment failed: The provided wallet address does not match the signature. Please verify your wallet details.${colors.reset}`);
+          break;
+        case 'INVALID_SIGNATURE':
+          console.error(`${colors.fg.red}✗ Deployment failed: The provided signature is invalid. Please ensure the correct wallet and data are used.${colors.reset}`);
+          break;
+        case 'HASH_MISMATCH':
+          console.error(`${colors.fg.red}✗ Deployment failed: The provided ZIP file hash does not match the uploaded file. Please verify the file integrity.${colors.reset}`);
+          break;
+        case 'NO_ZIP_FILE':
+          console.error(`${colors.fg.red}✗ Deployment failed: No ZIP file was provided in the upload request.${colors.reset}`);
+          break;
+        case 'TOTAL_SIZE_EXCEEDED':
+          console.error(`${colors.fg.red}✗ Deployment failed: The total file size exceeds the allowed limit of 50 MB.${colors.reset}`);
+          break;
+        case 'INVALID_FILE_TYPE':
+          console.error(`${colors.fg.red}✗ Deployment failed: One or more files have an invalid file type. Only specific file extensions are allowed.${colors.reset}`);
+          break;
+        case 'FILE_NOT_FOUND_IN_ZIP':
+          console.error(`${colors.fg.red}✗ Deployment failed: One or more files listed in metadata were not found in the ZIP file.${colors.reset}`);
+          break;
+        default:
+          console.error(`${colors.fg.red}✗ Deployment failed: ${message} (Code: ${code})${colors.reset}`);
+      }
+    } else {
+      console.error(`${colors.fg.red}✗ Deployment failed: ${error.message}${colors.reset}`);
+    }
+    const zipPath = 'deploy.zip';
+    if (fs.existsSync(zipPath)) {
+      fs.unlinkSync(zipPath);
+      console.log(`${colors.fg.cyan}Cleaned up temporary ZIP file: ${zipPath}${colors.reset}`);
+    }
     throw error;
   }
 }
