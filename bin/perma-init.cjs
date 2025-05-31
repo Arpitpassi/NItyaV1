@@ -305,7 +305,7 @@ async function main() {
     projectName,
     walletPath: sigType === 'arweave' ? (existingWalletPath || walletPath) : null,
     buildCommand: argv.build || 'npm --version',
-    deployBranch: argv.branch || null,
+    deployBranch: argv.branch || 'main',
     arnsName: argv.arns || null,
     undername: argv.undername || null,
     antProcess: argv['ant-process'] || null,
