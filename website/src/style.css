@@ -960,3 +960,140 @@ body.light-mode .grid-background {
   border-color: var(--light-accent);
   box-shadow: 0 0 8px rgba(75, 0, 130, 0.5);
 }
+
+.event-pool-terms {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--terminal-bg);
+  border: 2px solid var(--terminal-border);
+  padding: 2rem;
+  width: 90%;
+  max-width: 1100px;
+  max-height: 600px;
+  overflow-y: auto;
+  z-index: 20;
+  display: none;
+  color: var(--text-dark);
+  font-family: 'Roboto Mono', monospace;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+  border: 2px solid #ffffff;
+}
+
+.light-mode .event-pool-terms {
+  background: var(--light-bg);
+  border: 2px solid var(--light-border);
+  color: var(--light-text);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.event-pool-terms h2 {
+  text-align: center;
+  margin-bottom: 0.5rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #00ffe1;
+  padding-bottom: 0.5rem;
+}
+
+.light-mode .event-pool-terms h2 {
+  color: var(--light-accent);
+}
+
+.terms-content {
+  margin-bottom: 2rem;
+}
+
+.terms-section {
+  margin-bottom: 1rem;
+}
+
+.terms-section h3 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--neon-pink);
+  margin-bottom: 0.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.light-mode .terms-section h3 {
+  color: var(--light-accent);
+}
+
+.terms-section p {
+  font-size: 0.65rem;
+  line-height: 1.3;
+  margin-bottom: 0.2rem;
+  color: var(--text-dark);
+}
+
+.light-mode .terms-section p {
+  color: var(--light-text);
+}
+
+.terms-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 1.5rem;
+}
+
+.btn-accept,
+.btn-decline {
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  width: auto;
+  min-width: 80px;
+}
+
+.btn-accept {
+  background-color: transparent;
+  border: 2px solid var(--neon-green);
+  color: var(--neon-green);
+}
+
+.btn-accept:hover {
+  background-color: var(--neon-green);
+  color: var(--primary-dark);
+  box-shadow: 0 0 10px var(--neon-green);
+}
+
+.light-mode .btn-accept {
+  border: 2px solid var(--highlight-light);
+  color: var(--highlight-light);
+}
+
+.light-mode .btn-accept:hover {
+  background-color: var(--highlight-light);
+  color: var(--light-bg);
+  box-shadow: 0 0 10px var(--highlight-light);
+}
+
+.btn-decline {
+  background-color: transparent;
+  border: 2px solid #FF5555;
+  color: #FF5555;
+}
+
+.btn-decline:hover {
+  background-color: #FF5555;
+  color: var(--primary-dark);
+  box-shadow: 0 0 10px #FF5555;
+}
+
+.light-mode .btn-decline {
+  border: 2px solid #D32F2F;
+  color: #D32F2F;
+}
+
+.light-mode .btn-decline:hover {
+  background-color: #D32F2F;
+  color: var(--light-bg);
+  box-shadow: 0 0 10px #D32F2F;
+}

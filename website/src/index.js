@@ -67,6 +67,10 @@ async function generateAndShowInitCommand() {
     document.getElementById('initCommandOutputDiv').style.display = 'block';
     document.getElementById('initCommandOutput').textContent = commands.initializationCommand;
     document.getElementById('seedOutput').textContent = 'Initialize your project and get its wallet address';
+    const grantButton = document.getElementById('grantButton');
+    if (grantButton) {
+      grantButton.disabled = !mainWalletConnected || !projectWalletAddress;
+    }
   }
 }
 
@@ -103,39 +107,9 @@ function showConfigForm() {
   toggleBackgroundBlur(true);
 }
 
-async function topUpWallet() {
-  const statusEl = document.getElementById('status');
-  statusEl.textContent = 'Initiating top-up...';
-  statusEl.className = 'status-message';
-
-  try {
-    if (!window.arweaveWallet) throw new Error('Wander wallet not detected.');
-    if (!mainWalletConnected) throw new Error('Connect your wallet first.');
-    if (!projectWalletAddress) throw new Error('Set a project wallet address.');
-
-    const senderAddress = await window.arweaveWallet.getActiveAddress();
-    const balanceAR = arweaveInstance.ar.winstonToAr(await arweaveInstance.wallets.getBalance(senderAddress));
-    if (parseFloat(balanceAR) < 0.1001) throw new Error('Need at least 0.1001 AR.');
-
-    const tx = await arweaveInstance.createTransaction({
-      target: projectWalletAddress,
-      quantity: arweaveInstance.ar.arToWinston('0.1')
-    }, 'use_wallet');
-
-    statusEl.textContent = 'Submitting transaction...';
-    const signedTx = await window.arweaveWallet.sign(tx);
-    const response = await window.arweaveWallet.dispatch(signedTx);
-
-    showStatusMessage('status', `Top-up successful! TX ID: ${response.id}`, 'success');
-  } catch (error) {
-    console.error(`Top-up error: ${error.message}`);
-    showStatusMessage('status', `Error: ${error.message}`, 'error');
-  }
-}
-
 async function grantControllerAccess() {
   const selectedProcessId = document.getElementById('arnsNames').value;
-  const statusEl = document.getElementBy('status');
+  const statusEl = document.getElementById('status');
   statusEl.textContent = 'Granting controller access...';
   statusEl.className = 'status-message';
 
@@ -180,4 +154,31 @@ function goBack(currentStep) {
 function closeWindow(windowId) {
   document.getElementById(windowId).style.display = 'none';
   toggleBackgroundBlur(false);
+}
+
+function toggleEventPoolFields() {
+  const checkbox = document.getElementById('useEventPool');
+  const fields = document.getElementById('eventPoolFields');
+  
+  if (checkbox.checked) {
+    showEventPoolTerms();
+  } else {
+    fields.style.display = 'none';
+  }
+}
+
+function showEventPoolTerms() {
+  document.getElementById('eventPoolTerms').style.display = 'block';
+}
+
+function acceptEventPoolTerms() {
+  document.getElementById('eventPoolFields').style.display = 'block';
+  closeWindow('eventPoolTerms');
+  document.getElementById('useEventPool').checked = true;
+}
+
+function declineEventPoolTerms() {
+  document.getElementById('useEventPool').checked = false;
+  document.getElementById('eventPoolFields').style.display = 'none';
+  closeWindow('eventPoolTerms');
 }

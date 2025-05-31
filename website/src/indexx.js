@@ -56,8 +56,12 @@ document.addEventListener('DOMContentLoaded', function() {
     projectWalletAddress = urlWallet;
     document.getElementById('projectWalletInput').value = projectWalletAddress;
     document.getElementById('projectWalletDisplay').textContent = `Project Wallet Address: ${projectWalletAddress}`;
-    document.getElementById('topUpButton').disabled = !mainWalletConnected;
-    document.getElementById('grantButton').disabled = !mainWalletConnected;
+    const grantButton = document.getElementById('grantButton');
+    if (grantButton) {
+      grantButton.disabled = !mainWalletConnected;
+    } else {
+      logDebug('Warning: grantButton not found in DOM');
+    }
   }
   
   logDebug(`Available globals - Arweave: ${typeof window.Arweave !== 'undefined'}, arIO: ${typeof window.arIO !== 'undefined'}, window.arweaveWallet: ${typeof window.arweaveWallet !== 'undefined'}`);
@@ -149,8 +153,13 @@ async function initializeAndConnectWallet() {
     logDebug(`Connected wallet address: ${address}`);
     
     mainWalletConnected = true;
-    document.getElementById('topUpButton').disabled = !projectWalletAddress;
-    document.getElementById('grantButton').disabled = !projectWalletAddress;
+    
+    const grantButton = document.getElementById('grantButton');
+    if (grantButton) {
+      grantButton.disabled = !projectWalletAddress;
+    } else {
+      logDebug('Warning: grantButton not found in DOM');
+    }
     
     statusEl.textContent = 'Fetching ARNS names...';
     await populateArnsNames(address);
@@ -177,8 +186,10 @@ async function disconnectWallet() {
     connectBtn.style.display = 'block';
     disconnectBtn.style.display = 'none';
     walletText.style.display = 'none';
-    document.getElementById('topUpButton').disabled = true;
-    document.getElementById('grantButton').disabled = true;
+    const grantButton = document.getElementById('grantButton');
+    if (grantButton) {
+      grantButton.disabled = true;
+    }
     showStatusMessage('walletStatus', 'Wallet disconnected', 'success');
     logDebug('Wallet disconnected');
   } catch (error) {
@@ -218,18 +229,17 @@ async function populateArnsNames(address) {
     const registry = window.arIO.ANTRegistry.init();
     const processes = await getANTProcessesOwnedByWallet({ address, registry });
     
-    // Loop through process IDs to fetch names
     arnsData = [];
     for (const processId of processes) {
       try {
         const ant = window.arIO.ANT.init({ processId });
         const info = await ant.getInfo();
-        const name = info.name || processId; // Fallback to processId if name is not available
+        const name = info.name || processId;
         arnsData.push({ name, processId });
         logDebug(`Retrieved name "${name}" for process ID: ${processId}`);
       } catch (error) {
         logDebug(`Error fetching name for process ID ${processId}: ${error.message}`);
-        arnsData.push({ name: processId, processId }); // Fallback to processId
+        arnsData.push({ name: processId, processId });
       }
     }
     
@@ -245,8 +255,8 @@ async function populateArnsNames(address) {
     
     arnsData.forEach(({ name, processId }) => {
       const option = document.createElement('option');
-      option.value = processId; // Use processId as the value
-      option.textContent = name; // Display the name
+      option.value = processId;
+      option.textContent = name;
       dropdown.appendChild(option);
     });
     
@@ -266,8 +276,10 @@ function usePastedWallet() {
   }
   projectWalletAddress = pastedWallet;
   document.getElementById('projectWalletDisplay').textContent = `Project Wallet Address: ${pastedWallet}`;
-  document.getElementById('topUpButton').disabled = !mainWalletConnected;
-  document.getElementById('grantButton').disabled = !mainWalletConnected;
+  const grantButton = document.getElementById('grantButton');
+  if (grantButton) {
+    grantButton.disabled = !mainWalletConnected;
+  }
   logDebug(`Set project wallet address: ${pastedWallet}`);
   showStatusMessage('status', 'Project wallet address set successfully!', 'success');
 }

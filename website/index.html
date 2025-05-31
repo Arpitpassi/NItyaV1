@@ -75,7 +75,7 @@
           </select>
           <div class="form-group checkbox-container">
   <input type="checkbox" id="useEventPool" onclick="toggleEventPoolFields()">
-  <label for="useEventPool">Use Event Pool</label>
+  <label for="useEventPool">Use Event Pool Sponsor for deployment</label>
 </div>
 <div id="eventPoolFields" style="display: none;">
   <div class="form-group">
@@ -95,7 +95,7 @@
           <select id="arnsNames">
             <option value="">Select an ANT Process</option>
           </select>
-          <label for="arnsName">ARNS Name (optional):</label>
+          <label for="arnsName">ARNS Name (Associated with the process):</label>
           <input type="text" id="arnsName" placeholder="ARNS name (e.g., myapp)">
           <label for="undername">Undername (optional):</label>
           <input type="text" id="undername" placeholder="ARNS undername (e.g., dev)">
@@ -237,6 +237,48 @@
         <button class="btn" onclick="closeWindow('helpSection')">Close Guide</button>
       </div>
     </div>
+    
+<!-- HTML to add to your index.html (add this after your existing modals, before the closing body tag) -->
+
+<div class="event-pool-terms" id="eventPoolTerms">
+  <button class="close-btn" onclick="closeWindow('eventPoolTerms')">×</button>
+  <h2>Nitya Event Pools – Terms and Agreement</h2>
+  
+  <div class="terms-content">
+    <div class="terms-section">
+      <h3>1. Overview</h3>
+      <p>Nitya Event Pools allow individual owners ("Pool Owners") to deploy projects on behalf of users ("Participants") during specific events. Deployments are made to Arweave using the Pool Owner's resources.</p>
+    </div>
+
+    <div class="terms-section">
+      <h3>2. Deployment Terms</h3>
+      <p>Participants submit their projects for deployment. They do not receive direct access to credits or deployment systems.</p>
+      <p>Deployments are processed only during the official duration of the event.</p>
+      <p>Late or non-compliant submissions may not be deployed.</p>
+    </div>
+
+    <div class="terms-section">
+      <h3>3. Ownership </h3>
+      <p>Participants retain full ownership and rights to their submitted projects.</p>
+    </div>
+
+    <div class="terms-section">
+      <h3>4. Privacy and Data Use</h3>
+      <p>Submitted data is used solely for the purpose of deploying the project to Arweave during the event.</p>
+      <p>No personal information is shared or stored beyond what is required for deployment and participation.</p>
+    </div>
+
+    <div class="terms-section">
+      <h3>5. Agreement</h3>
+      <p>By submitting a project for deployment via a Nitya Event Pool, you agree to these terms and confirm your participation in the event under the stated conditions.</p>
+    </div>
+  </div>
+
+  <div class="terms-buttons">
+    <button class="btn btn-accept" onclick="acceptEventPoolTerms()">I Accept</button>
+    <button class="btn btn-decline" onclick="declineEventPoolTerms()">Decline</button>
+  </div>
+</div>
   </section>
   
   <!-- <section id="services">
