@@ -176,7 +176,7 @@ function acceptEventPoolTerms() {
   closeWindow('eventPoolTerms');
   document.getElementById('useEventPool').checked = true;
 }
-
+// Function to show a status message
 function declineEventPoolTerms() {
   document.getElementById('useEventPool').checked = false;
   document.getElementById('eventPoolFields').style.display = 'none';

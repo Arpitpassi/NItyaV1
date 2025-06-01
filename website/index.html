@@ -30,7 +30,7 @@
       <div class="btn-container">
         <!-- unSwapped positions: "Our Services" comes first, then "Get Started" -->
         <a href="#deployment" class="btn">Get Started</a>
-        <!-- <a href="#services" class="btn">Our Services</a> -->
+        <a href="#services" class="btn">Our Services</a>
       </div>
     </div>
     
@@ -40,13 +40,49 @@
       </svg>
     </div>
   </section>
+  </div>
+  </section>
+  
+  <section id="services">
+    <div class="container">
+      <div class="arrow">→</div>
+      <h2 class="section-title">Our Services</h2>
+      
+      <div class="services">
+        <div class="service-card">
+          <div class="service-number">― 01</div>
+          <h3 class="service-title">Decentralized Deployment</h3>
+          <p class="service-description">
+            Deploy your data to the Arweave permanent storage network, go from ideas to mvps to being product ready we got something for you at every stage.
+          </p>
+        </div>
+        
+        <div class="service-card">
+          <div class="service-number">― 02</div>
+          <h3 class="service-title">Nitya Sponsor Pools</h3>
+          <p class="service-description">
+            Seamlessly deploy your content even when you're short on credits through the help of Nitya Sponsor Pools, supported for by someone just like you building the permaweb.
+          </p>
+        </div>
+        
+        <div class="service-card">
+          <div class="service-number">― 03</div>
+          <h3 class="service-title">Persistent Storage</h3>
+          <p class="service-description">
+            Leverage the power of permanent storage for your critical data, ensuring it remains accessible and immutable for decades to come.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+   
   
   <section id="deployment">
     <div class="container">
       <div class="arrow">→</div>
       <h2 class="section-title">Easy Deployment</h2>
       <p class="hero-subtitle">
-        With our <span class="accent">streamlined tools</span> and <span class="secondary-accent">intuitive interface</span>, simplest way to deploy to the permaweb. 
+        With our <span class="accent">streamlined tools</span> and <span class="secondary-accent">intuitive interface</span>we offer the simplest way to deploy to the permaweb. 
       
       <div class="btn-container">
         <div class="button-row">
@@ -140,6 +176,7 @@
       <div class="help-button">
         <button class="btn" onclick="showHelpSection()">Need Help?</button>
       </div>
+      
       
       <div class="help-section" id="helpSection">
         <button class="close-btn" onclick="closeWindow('helpSection')">×</button>
@@ -238,7 +275,7 @@
       </div>
     </div>
     
-<!-- HTML to add to your index.html (add this after your existing modals, before the closing body tag) -->
+<!-- HTL to add to your index.html (add this after your existing modals, before the closing body tag) -->
 
 <div class="event-pool-terms" id="eventPoolTerms">
   <button class="close-btn" onclick="closeWindow('eventPoolTerms')">×</button>
@@ -278,42 +315,7 @@
     <button class="btn btn-accept" onclick="acceptEventPoolTerms()">I Accept</button>
     <button class="btn btn-decline" onclick="declineEventPoolTerms()">Decline</button>
   </div>
-</div>
-  </section>
-  
-  <!-- <section id="services">
-    <div class="container">
-      <div class="arrow">→</div>
-      <h2 class="section-title">Our Services</h2>
-      
-      <div class="services">
-        <div class="service-card">
-          <div class="service-number">― 01</div>
-          <h3 class="service-title">Decentralized Deployment</h3>
-          <p class="service-description">
-            Deploy your web applications to the Arweave permanent storage network, ensuring your data remains accessible forever without centralized servers.
-          </p>
-        </div>
-        
-        <div class="service-card">
-          <div class="service-number">― 02</div>
-          <h3 class="service-title">Web3 Integration</h3>
-          <p class="service-description">
-            Seamlessly integrate your applications with blockchain technologies, wallets, and smart contracts for next-generation web experiences.
-          </p>
-        </div>
-        
-        <div class="service-card">
-          <div class="service-number">― 03</div>
-          <h3 class="service-title">Persistent Storage</h3>
-          <p class="service-description">
-            Leverage the power of permanent storage for your critical data, ensuring it remains accessible and immutable for decades to come.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-   -->
+
   <script src="https://unpkg.com/arweave@1.15.7/bundles/web.bundle.min.js"></script>
   <script src="dist/ar-io-bundle.js"></script>
   <script type="module">

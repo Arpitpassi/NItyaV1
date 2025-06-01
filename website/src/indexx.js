@@ -5,7 +5,7 @@ let mainWalletConnected = false;
 let sdkLoaded = false;
 let arweaveInstance = null;
 let arnsData = [];
-
+// Constants for ANT Registry and AO Gateway
 const REGISTRY_PROCESS_ID = 'bq53rqJm0cHSBm45zS4LOEyXE-IgumsMr9DnO6g608E';
 const AO_GATEWAY = 'https://ao.link';
 

@@ -2,7 +2,7 @@
     const body = document.body;
     const themeToggle = document.getElementById('theme-toggle');
 
-    // Load theme from localStorage
+    // Load theme from localStorage.
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light-mode') {
       body.classList.add('light-mode');

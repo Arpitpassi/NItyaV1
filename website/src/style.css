@@ -254,11 +254,13 @@ section {
   border-radius: 8px;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  z-index: 0;
 }
 
 .service-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  z-index: index height;;
 }
 
 .service-number {
@@ -904,7 +906,7 @@ body.light-mode .grid-background {
 
 #eventPoolFields {
   margin-top: 0.5rem;
-  padding-left: 1.5rem; /* Indent to align with checkbox */
+  padding-left: 1.5rem; /* Indent to align with checkbox. */
 }
 
 #eventPoolFields .form-group {
