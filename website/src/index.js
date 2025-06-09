@@ -1,5 +1,7 @@
 let generatedInitCommand = '';
 let generatedDeployCommand = '';
+// Assume arnsData is globally available from index.js
+// If not, you may need to import or share it (see Notes below)
 
 function toggleEventPoolFields() {
   const useEventPool = document.getElementById('useEventPool').checked;
@@ -17,10 +19,16 @@ async function generateCommand() {
     const sigType = document.getElementById('sigType').value;
     const arnsSelect = document.getElementById('arnsNames');
     const selectedProcessId = arnsSelect.value;
-    const arnsName = document.getElementById('arnsName').value || '';
     const undername = document.getElementById('undername').value || '';
     const useEventPool = document.getElementById('useEventPool').checked;
     const eventPoolId = useEventPool ? document.getElementById('eventPoolId').value : '';
+
+    // Find the ARNS name for the selected processId
+    const selectedArns = arnsData.find(item => item.processId === selectedProcessId);
+    if (selectedProcessId && !selectedArns) {
+      throw new Error('Selected ARNS name not found in loaded data. Please refresh and try again.');
+    }
+    const arnsName = selectedArns ? selectedArns.name : '';
 
     let initCommand = 'npx nitya init';
     if (projectName) initCommand += ` --project-name "${projectName}"`;
@@ -176,7 +184,7 @@ function acceptEventPoolTerms() {
   closeWindow('eventPoolTerms');
   document.getElementById('useEventPool').checked = true;
 }
-// Function to show a status message
+
 function declineEventPoolTerms() {
   document.getElementById('useEventPool').checked = false;
   document.getElementById('eventPoolFields').style.display = 'none';

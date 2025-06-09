@@ -140,12 +140,6 @@ async function initializeAndConnectWallet() {
     
     logDebug(`Using wallet type: ${walletInfo.type}`);
     
-    statusEl.textContent = 'Loading AR.IO SDK...';
-    
-    if (!sdkLoaded) {
-      await waitForSdkToLoad(15000);
-    }
-    
     statusEl.textContent = 'Connecting to wallet...';
     
     await window.arweaveWallet.connect(['SIGN_TRANSACTION', 'ACCESS_ADDRESS']);
@@ -198,58 +192,135 @@ async function disconnectWallet() {
   }
 }
 
-async function getANTProcessesOwnedByWallet({ address, registry }) {
+async function populateArnsNames(walletAddress) {
   try {
-    const res = await registry.accessControlList({ address });
-    if (!res || (!res.Owned && !res.Controlled)) {
-      return [];
-    }
+    logDebug('Fetching ARNS names for address: ' + walletAddress);
     
-    const owned = Array.isArray(res.Owned) ? res.Owned : [];
-    const controlled = Array.isArray(res.Controlled) ? res.Controlled : [];
-    return [...new Set([...owned, ...controlled])];
-  } catch (error) {
-    logDebug(`Error in getANTProcessesOwnedByWallet: ${error.message}`);
-    return [];
-  }
-}
+    const registryUrl = 'https://cu.ardrive.io/dry-run?process-id=i_le_yKKPVstLTDSmkHRqf-wYphMnwB9OhleiTgMkWc';
+    const namesUrl = 'https://cu.ardrive.io/dry-run?process-id=qNvAoz0TgcH7DMg8BCVn8jF32QH5L6T29VjHxhHqqGE';
+    
+    const headers = {
+      'accept': '*/*',
+      'content-type': 'application/json',
+      'origin': 'https://arns.app',
+      'referer': 'https://arns.app/'
+    };
 
-async function populateArnsNames(address) {
-  try {
-    if (!sdkLoaded) {
-      await waitForSdkToLoad();
+    // First API call to get owned process IDs
+    const registryBody = JSON.stringify({
+      Id: "1234",
+      Target: "i_le_yKKPVstLTDSmkHRqf-wYphMnwB9OhleiTgMkWc",
+      Owner: "1234",
+      Anchor: "0",
+      Data: "1234",
+      Tags: [
+        { name: "Action", value: "Access-Control-List" },
+        { name: "Address", value: walletAddress },
+        { name: "Data-Protocol", value: "ao" },
+        { name: "Type", value: "Message" },
+        { name: "Variant", value: "ao.TN.1" }
+      ]
+    });
+
+    const registryResponse = await fetch(registryUrl, { method: 'POST', headers, body: registryBody });
+    if (!registryResponse.ok) throw new Error(`Registry API error: ${registryResponse.status}`);
+    
+    const registryData = JSON.parse(await registryResponse.text());
+    
+    let ownedProcessIds = [];
+    if (registryData.Messages?.[0]?.Data) {
+      const ownedData = JSON.parse(registryData.Messages[0].Data);
+      ownedProcessIds = ownedData.Owned || [];
     }
-    
-    logDebug('Fetching ANT processes for address: ' + address);
-    
-    if (!window.arIO || !window.arIO.ANTRegistry || !window.arIO.ANT) {
-      throw new Error('ARIO SDK or ANT SDK not loaded or initialized properly');
+
+    logDebug(`Found ${ownedProcessIds.length} owned process IDs`);
+
+    if (ownedProcessIds.length === 0) {
+      logDebug('No owned process IDs found for this wallet');
+      showStatusMessage('walletStatus', 'Wallet connected! No ARNS names found for this wallet.', 'success');
+      return;
     }
-    
-    const registry = window.arIO.ANTRegistry.init();
-    const processes = await getANTProcessesOwnedByWallet({ address, registry });
-    
-    arnsData = [];
-    for (const processId of processes) {
-      try {
-        const ant = window.arIO.ANT.init({ processId });
-        const info = await ant.getInfo();
-        const name = info.name || processId;
-        arnsData.push({ name, processId });
-        logDebug(`Retrieved name "${name}" for process ID: ${processId}`);
-      } catch (error) {
-        logDebug(`Error fetching name for process ID ${processId}: ${error.message}`);
-        arnsData.push({ name: processId, processId });
+
+    // Second API call to get names for owned process IDs (with pagination)
+    let cursor = "";
+    const processIdToItem = new Map();
+    let keepPaging = true;
+
+    while (keepPaging) {
+      const tags = [
+        { name: "Action", value: "Paginated-Records" },
+        { name: "Limit", value: "1000" },
+        { name: "Data-Protocol", value: "ao" },
+        { name: "Type", value: "Message" },
+        { name: "Variant", value: "ao.TN.1" }
+      ];
+      
+      if (cursor) tags.push({ name: "Cursor", value: cursor });
+
+      const namesBody = JSON.stringify({
+        Id: "1234",
+        Target: "qNvAoz0TgcH7DMg8BCVn8jF32QH5L6T29VjHxhHqqGE",
+        Owner: "1234",
+        Anchor: "0",
+        Data: "1234",
+        Tags: tags
+      });
+
+      const namesResponse = await fetch(namesUrl, { method: 'POST', headers, body: namesBody });
+      if (!namesResponse.ok) throw new Error(`Names API error: ${namesResponse.status}`);
+
+      const namesText = await namesResponse.text();
+      const namesData = JSON.parse(namesText);
+      
+      if (namesData.Messages?.[0]?.Data) {
+        const parsedData = JSON.parse(namesData.Messages[0].Data);
+        const items = parsedData.items || [];
+        
+        for (const item of items) {
+          if (ownedProcessIds.includes(item.processId)) {
+            processIdToItem.set(item.processId, item);
+          }
+        }
+
+        if (parsedData.nextCursor) {
+          cursor = parsedData.nextCursor;
+        } else {
+          keepPaging = false;
+        }
+      } else {
+        keepPaging = false;
       }
     }
-    
-    logDebug(`Retrieved ${arnsData.length} processes`);
-    
+
+    // Populate arnsData
+    arnsData = ownedProcessIds.map(processId => {
+      const item = processIdToItem.get(processId);
+      if (item) {
+        return {
+          name: item.name,
+          processId: item.processId
+        };
+      } else {
+        return {
+          name: `Unnamed (${processId})`, // Fallback for debugging
+          processId
+        };
+      }
+    }).filter(item => item.name !== `Unnamed (${item.processId})`); // Filter out unnamed items
+
+    logDebug(`Retrieved ${arnsData.length} ARNS names`);
+
     const dropdown = document.getElementById('arnsNames');
+    if (!dropdown) {
+      logDebug('Error: Dropdown element with ID "arnsNames" not found in DOM');
+      throw new Error('Dropdown element not found');
+    }
+    
     dropdown.innerHTML = '<option value="">Select an ARNS Name</option>';
     
     if (arnsData.length === 0) {
-      showStatusMessage('walletStatus', 'Wallet connected! No ARNS processes found for this wallet.', 'success');
+      logDebug('No valid ARNS names found after filtering');
+      showStatusMessage('walletStatus', 'Wallet connected! No valid ARNS names found for this wallet.', 'success');
       return;
     }
     
@@ -262,7 +333,7 @@ async function populateArnsNames(address) {
     
     showStatusMessage('walletStatus', `Found ${arnsData.length} ARNS name${arnsData.length === 1 ? '' : 's'}`, 'success');
   } catch (error) {
-    logDebug(`Error fetching ANT processes: ${error.message}`);
+    logDebug(`Error fetching ARNS names: ${error.message}`);
     showStatusMessage('walletStatus', `Error loading ARNS names: ${error.message}`, 'error');
     throw error;
   }
