@@ -13,7 +13,7 @@
   <div id="canvas-container"></div>
   
   <header class="header">
-    <a href="#" class="logo">Nityaprotocol-ver.Alpha</a>
+    <a href="#" class="logo">Nityaprotocol ver.beta</a>
     <button class="theme-toggle" id="theme-toggle">Light Mode</button>
   </header>
   
@@ -39,8 +39,6 @@
         <path d="M7.41,8.59L12,13.17l4.59-4.58L18,10l-6,6l-6-6L7.41,8.59z"/>
       </svg>
     </div>
-  </section>
-  </div>
   </section>
   
   <section id="services">
@@ -82,7 +80,8 @@
       <div class="arrow">→</div>
       <h2 class="section-title">Easy Deployment</h2>
       <p class="hero-subtitle">
-        With our <span class="accent">streamlined tools</span> and <span class="secondary-accent">intuitive interface</span>we offer the simplest way to deploy to the permaweb. 
+        With our <span class="accent">streamlined tools</span> and <span class="secondary-accent">intuitive interface</span> we offer the simplest way to deploy to the permaweb. 
+      </p>
       
       <div class="btn-container">
         <div class="button-row">
@@ -110,15 +109,15 @@
             <option value="arweave">Arweave (More soon ;D)</option>
           </select>
           <div class="form-group checkbox-container">
-  <input type="checkbox" id="useEventPool" onclick="toggleEventPoolFields()">
-  <label for="useEventPool">Use Event Pool Sponsor for deployment</label>
-</div>
-<div id="eventPoolFields" style="display: none;">
-  <div class="form-group">
-    <label for="eventPoolId">Event Pool ID</label>
-    <input type="text" id="eventPoolId" placeholder="Enter pool ID">
-  </div>
-</div>
+            <input type="checkbox" id="useSponsorWallet" onclick="toggleSponsorWalletFields()">
+            <label for="useSponsorWallet">Use Sponsor Wallet Address for deployment</label>
+          </div>
+          <div id="sponsorWalletFields" style="display: none;">
+            <div class="form-group">
+              <label for="sponsorWalletAddress">Sponsor Wallet Address</label>
+              <input type="text" id="sponsorWalletAddress" placeholder="Enter sponsor wallet address">
+            </div>
+          </div>
           <div class="checkbox-container">
             <input type="checkbox" id="autoDeploy" checked>
             <label for="autoDeploy">Set up automatic deployment on commit</label>
@@ -174,7 +173,6 @@
       <div class="help-button">
         <button class="btn" onclick="showHelpSection()">Need Help?</button>
       </div>
-      
       
       <div class="help-section" id="helpSection">
         <button class="close-btn" onclick="closeWindow('helpSection')">×</button>
@@ -237,7 +235,7 @@
           <div class="step-number">4</div>
           <div class="step-content">
             <h3>Grant Controller Access and Fund Your Project Wallet</h3>
-            <p>Ensure your project wallet has some turbo credits for larger than 100kb deployments.</p>
+            <p>Ensure your project wallet has some turbo credits for deployments larger than 100kb if not using a sponsor wallet.</p>
             <div class="terminal-container">
               <div class="terminal-header">
                 <div class="terminal-button"></div>
@@ -271,57 +269,54 @@
         </div>
         <button class="btn" onclick="closeWindow('helpSection')">Close Guide</button>
       </div>
-    </div>
-    
-<!-- HTL to add to your index.html (add this after your existing modals, before the closing body tag) -->
-
-<div class="event-pool-terms" id="eventPoolTerms">
-  <button class="close-btn" onclick="closeWindow('eventPoolTerms')">×</button>
-  <h2>Nitya Event Pools – Terms and Agreement</h2>
+      
+      <div class="event-pool-terms" id="eventPoolTerms">
+        <button class="close-btn" onclick="closeWindow('eventPoolTerms')">×</button>
+        <h2>Nitya Sponsor Wallet – Terms and Agreement</h2>
+        
+        <div class="terms-content">
+          <div class="terms-section">
+            <h3>1. Overview</h3>
+            <p>Nitya Sponsor Wallets allow individual sponsors to fund deployments on behalf of users ("Participants") using shared credits. Deployments are made to Arweave using the sponsor's Turbo credits.</p>
+          </div>
   
-  <div class="terms-content">
-    <div class="terms-section">
-      <h3>1. Overview</h3>
-      <p>Nitya Event Pools allow individual owners ("Pool Owners") to deploy projects on behalf of users ("Participants") during specific events. Deployments are made to Arweave using the Pool Owner's resources.</p>
-    </div>
-
-    <div class="terms-section">
-      <h3>2. Deployment Terms</h3>
-      <p>Participants submit their projects for deployment. They do not receive direct access to credits or deployment systems.</p>
-      <p>Deployments are processed only during the official duration of the event.</p>
-      <p>Late or non-compliant submissions may not be deployed.</p>
-    </div>
-
-    <div class="terms-section">
-      <h3>3. Ownership </h3>
-      <p>Participants retain full ownership and rights to their submitted projects.</p>
-    </div>
-
-    <div class="terms-section">
-      <h3>4. Privacy and Data Use</h3>
-      <p>Submitted data is used solely for the purpose of deploying the project to Arweave during the event.</p>
-      <p>No personal information is shared or stored beyond what is required for deployment and participation.</p>
-    </div>
-
-    <div class="terms-section">
-      <h3>5. Agreement</h3>
-      <p>By submitting a project for deployment via a Nitya Event Pool, you agree to these terms and confirm your participation in the event under the stated conditions.</p>
-    </div>
-  </div>
-
-  <div class="terms-buttons">
-    <button class="btn btn-accept" onclick="acceptEventPoolTerms()">I Accept</button>
-    <button class="btn btn-decline" onclick="declineEventPoolTerms()">Decline</button>
-  </div>
-
-  <script src="https://unpkg.com/arweave@1.15.7/bundles/web.bundle.min.js"></script>
-  <script src="dist/ar-io-bundle.js"></script>
-  <script type="module">
-    import * as aoconnect from 'https://unpkg.com/@permaweb/aoconnect@0.0.79/dist/index.js';
-    window.aoconnect = aoconnect;
-  </script>
-  <script src="src/index.js"></script>
-  <script src="src/indexx.js"></script>
-  <script src="src/DesignAndfuntionmap.js"></script>
-  </body>
+          <div class="terms-section">
+            <h3>2. Deployment Terms</h3>
+            <p>Participants submit their projects for deployment using the sponsor's wallet address. They do not receive direct access to credits or deployment systems.</p>
+            <p>Deployments are processed using the sponsor's Turbo credits, provided the participant's wallet is whitelisted by the sponsor.</p>
+          </div>
+  
+          <div class="terms-section">
+            <h3>3. Ownership</h3>
+            <p>Participants retain full ownership and rights to their submitted projects.</p>
+          </div>
+  
+          <div class="terms-section">
+            <h3>4. Privacy and Data Use</h3>
+            <p>Submitted data is used solely for the purpose of deploying the project to Arweave.</p>
+            <p>No personal information is shared or stored beyond what is required for deployment.</p>
+          </div>
+  
+          <div class="terms-section">
+            <h3>5. Agreement</h3>
+            <p>By using a sponsor wallet address for deployment, you agree to these terms and confirm your participation under the stated conditions.</p>
+          </div>
+        </div>
+  
+        <div class="terms-buttons">
+          <button class="btn btn-accept" onclick="acceptSponsorWalletTerms()">I Accept</button>
+          <button class="btn btn-decline" onclick="declineSponsorWalletTerms()">Decline</button>
+        </div>
+      </div>
+  
+      <script src="https://unpkg.com/arweave@1.15.7/bundles/web.bundle.min.js"></script>
+      <script src="dist/ar-io-bundle.js"></script>
+      <script type="module">
+        import * as aoconnect from 'https://unpkg.com/@permaweb/aoconnect@0.0.79/dist/index.js';
+        window.aoconnect = aoconnect;
+      </script>
+      <script src="src/index.js"></script>
+      <script src="src/indexx.js"></script>
+      <script src="src/DesignAndfuntionmap.js"></script>
+</body>
 </html>

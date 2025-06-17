@@ -11,7 +11,7 @@ const args = process.argv.slice(3);
 
 const commands = {
   'deploy': 'perma-deploy.js',
-  'init': 'perma-init.cjs', 
+  'init': 'perma-init.js', 
   'begin': 'perma-begin.cjs'
 };
 

@@ -5,7 +5,7 @@
   "type": "module",
   "bin": {
     "nitya": "bin/nitya.js",
-    "perma-init": "bin/perma-init.cjs",
+    "perma-init": "bin/perma-init.js",
     "perma-deploy": "bin/perma-deploy.js",
     "perma-begin": "bin/perma-begin.cjs"
   },

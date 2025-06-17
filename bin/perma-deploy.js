@@ -10,7 +10,6 @@ import { hideBin } from 'yargs/helpers';
 import readline from 'readline';
 import crypto from 'crypto';
 import { Readable } from 'stream';
-import { deployWithSponsor } from './sponsor-deploy.js';
 
 // Define ANSI colors for terminal output
 const colors = {
@@ -40,6 +39,7 @@ const colors = {
     white: "\x1b[47m"
   }
 };
+
 // Show a progress bar in the terminal
 function showProgress(message, percent) {
   const width = 30;
@@ -64,6 +64,7 @@ function showProgress(message, percent) {
     process.stdout.write('\n');
   }
 }
+
 // Retrieve current Git commit hash
 function getCommitHash() {
   try {
@@ -73,6 +74,7 @@ function getCommitHash() {
     return 'unknown';
   }
 }
+
 // Prompt user for input
 async function askQuestion(query) {
   const rl = readline.createInterface({
@@ -84,11 +86,13 @@ async function askQuestion(query) {
     resolve(ans);
   }));
 }
+
 // Calculate SHA256 hash of a file
 function calculateFileHash(filePath) {
   const fileBuffer = fs.readFileSync(filePath);
   return crypto.createHash('sha256').update(fileBuffer).digest('hex');
 }
+
 // Load or create manifest file
 function loadOrCreateManifest(manifestPath) {
   if (fs.existsSync(manifestPath)) {
@@ -100,6 +104,7 @@ function loadOrCreateManifest(manifestPath) {
   }
   return { files: {}, lastManifestId: null };
 }
+
 // Calculate folder size in KB
 function getFolderSizeInKB(directoryPath) {
   let totalSize = 0;
@@ -122,12 +127,14 @@ function getFolderSizeInKB(directoryPath) {
   getAllFilesSync(directoryPath);
   return totalSize / 1024;
 }
+
 // Save manifest to file
 function saveManifest(manifestPath, manifestData) {
   fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
   fs.writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2));
   console.log(`${colors.fg.green}✓ Manifest saved to ${manifestPath}${colors.reset}`);
 }
+
 // Get all files with their relative paths and hashes
 function getAllFilesWithHashes(directoryPath) {
   const files = [];
@@ -155,6 +162,7 @@ function getAllFilesWithHashes(directoryPath) {
   walkDir(directoryPath);
   return files;
 }
+
 // Determine Content-Type based on file extension
 function getContentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -177,6 +185,7 @@ function getContentType(filePath) {
   };
   return mimeTypes[ext] || 'application/octet-stream';
 }
+
 // Load configuration from config files
 function loadConfig() {
   let config = {};
@@ -202,19 +211,16 @@ function loadConfig() {
   
   return config;
 }
+
 // Main deployment function
 async function main() {
   // Load configuration
   const config = loadConfig();
   // Parse command-line arguments
   const argv = yargs(hideBin(process.argv))
-    .option('event-pool-id', {
+    .option('sponsor-wallet-address', {
       type: 'string',
-      description: 'Event pool ID for sponsored deployment'
-    })
-    .option('event-pool-password', {
-      type: 'string',
-      description: 'Wallet address (password) for event pool'
+      description: 'Sponsor wallet address for shared credits deployment'
     })
     .argv;
   
@@ -224,11 +230,9 @@ async function main() {
   const network = config.sigType || 'arweave';
   const buildCommand = config.buildCommand || '';
   const deployBranch = config.deployBranch || 'main';
-  const sponsorServerUrl = config.sponsorServerUrl || 'http://localhost:8080';
   const arnsName = config.arnsName || '';
   const walletPath = config.walletPath || '';
-  const eventPoolId = argv['event-pool-id'] || config.eventPoolId || '';
-  const eventPoolPassword = argv['event-pool-password'] || config.eventPoolPassword || '';
+  const sponsorWalletAddress = argv['sponsor-wallet-address'] || config.sponsorWalletAddress || '';
   // Define manifest path
   const permawebDir = path.join(process.cwd(), '.perma-deploy');
   const manifestPath = path.join(permawebDir, 'manifest.json');
@@ -242,9 +246,7 @@ async function main() {
   if (network) console.log(`${colors.fg.cyan}● Network:${colors.reset} ${network}`);
   if (arnsName) console.log(`${colors.fg.cyan}● ARNS Name:${colors.reset} ${arnsName}`);
   if (walletPath) console.log(`${colors.fg.cyan}● Wallet Path:${colors.reset} ${walletPath}`);
-  if (sponsorServerUrl) console.log(`${colors.fg.cyan}● Sponsor Server URL:${colors.reset} ${sponsorServerUrl}`);
-  if (eventPoolId) console.log(`${colors.fg.cyan}● Event Pool ID:${colors.reset} ${eventPoolId}`);
-  if (eventPoolPassword) console.log(`${colors.fg.cyan}● Event Pool Password:${colors.reset} ${eventPoolPassword}`);
+  if (sponsorWalletAddress) console.log(`${colors.fg.cyan}● Sponsor Wallet Address:${colors.reset} ${sponsorWalletAddress}`);
  // Load wallet key
   let DEPLOY_KEY = process.env.DEPLOY_KEY;
   let walletSource = 'environment variable DEPLOY_KEY';
@@ -263,7 +265,7 @@ async function main() {
       console.error(`${colors.fg.yellow}Resolved path: ${path.resolve(walletPath)}${colors.reset}`);
       process.exit(1);
     }
-  } else if (!DEPLOY_KEY && !eventPoolId) {
+  } else if (!DEPLOY_KEY && !sponsorWalletAddress) {
     console.error(`${colors.fg.red}DEPLOY_KEY environment variable or walletPath not configured${colors.reset}`);
     process.exit(1);
   }
@@ -309,7 +311,7 @@ async function main() {
     let signer = null;
     let token = null;
     let manifestId = manifest.lastManifestId || null;
-    // Initialize signer for direct uploads
+    // Initialize signer for uploads
     try {
       const parsedKey = JSON.parse(DEPLOY_KEY || fs.readFileSync(walletPathToUse, 'utf-8'));
       if (parsedKey.n && parsedKey.d) {
@@ -362,7 +364,9 @@ async function main() {
       fallback: { id: normalizedManifestFiles['404.html']?.txId || '' },
       paths: {},
     };
-    for (const [relativePath, data] of Object.entries(normalizedManifestFiles)) {
+    for (
+
+const [relativePath, data] of Object.entries(normalizedManifestFiles)) {
       manifestData.paths[relativePath] = { id: data.txId };
     }
     // Handle case where no files need uploading
@@ -370,7 +374,6 @@ async function main() {
       console.log(`${colors.fg.green}✓ All files are unchanged. Using existing manifest.${colors.reset}`);
       console.log(`\n${colors.bright}${colors.fg.green}╔════ DEPLOYMENT UNCHANGED ════╗${colors.reset}`);
       console.log(`${colors.fg.white}View existing deployment at:${colors.reset}`);
-      console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.ar.io/${manifestId} ${colors.reset}`);
       console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.net/${manifestId} ${colors.reset}`);
       if (antProcess && arnsName) {
         if (undername === '@' || !undername) {
@@ -384,117 +387,100 @@ async function main() {
       console.log(`${colors.fg.green}╚══════════════════════════════╝${colors.reset}`);
       process.exit(0);
     }
-    // Check folder size to determine deployment method
-    const folderSizeKB = getFolderSizeInKB(deployFolder);
-    console.log(`${colors.fg.blue}Folder size: ${folderSizeKB.toFixed(2)} KB${colors.reset}`);
-    let useSponsorPool = eventPoolId && folderSizeKB >= 100; // Use sponsor pool only if eventPoolId is set and folder size is 100KB or more
-    if (!useSponsorPool) {
-      console.log(`${colors.fg.blue}Attempting direct upload to Arweave${colors.reset}`);
-      const turbo = TurboFactory.authenticated({
-        signer: signer,
-        token: token,
-      });
+    // Initialize Turbo SDK
+    const turbo = TurboFactory.authenticated({
+      signer: signer,
+      token: token,
+    });
+    const uploadedFiles = {};
+    let uploadProgress = 0;
+    const totalItems = filesToUploadFiltered.length + 1;
+    const progressIncrement = totalItems > 0 ? 1.0 / totalItems : 1.0;
+    console.log('');
+    // Upload changed/new files
+    for (const file of filesToUploadFiltered) {
+      const fileStreamFactory = () => fs.createReadStream(file.fullPath);
+      const fileSizeFactory = () => fs.statSync(file.fullPath).size;
       try {
-        const uploadedFiles = {};
-        let uploadProgress = 0;
-        const totalItems = filesToUploadFiltered.length + 1;
-        const progressIncrement = totalItems > 0 ? 1.0 / totalItems : 1.0;
-        console.log('');
-        // Upload changed/new files
-        for (const file of filesToUploadFiltered) {
-          const fileStreamFactory = () => fs.createReadStream(file.fullPath);
-          const fileSizeFactory = () => fs.statSync(file.fullPath).size;
-          try {
-            showProgress(`Uploading file: ${file.relativePath}`, uploadProgress);
-            const uploadResult = await turbo.uploadFile({
-              fileStreamFactory,
-              fileSizeFactory,
-              dataItemOpts: {
-                tags: [
-                  { name: 'App-Name', value: 'PermaDeploy' },
-                  { name: 'anchor', value: new Date().toISOString() },
-                  { name: 'Content-Type', value: getContentType(file.relativePath) },
-                ],
-              },
-            });
-            uploadedFiles[file.relativePath] = {
-              id: uploadResult.id,
-              hash: file.hash,
-              lastModified: fs.statSync(file.fullPath).mtime.toISOString(),
-            };
-            manifestData.paths[file.relativePath] = { id: uploadResult.id };
-            uploadProgress += progressIncrement;
-            showProgress('', uploadProgress);
-          } catch (error) {
-            console.error(`\n${colors.fg.red}✗ Failed to upload ${file.relativePath}: ${error.message}${colors.reset}`);
-            throw error;
-          }
+        showProgress(`Uploading file: ${file.relativePath}`, uploadProgress);
+        const uploadOptions = {
+          fileStreamFactory,
+          fileSizeFactory,
+          dataItemOpts: {
+            tags: [
+              { name: 'App-Name', value: 'PermaDeploy' },
+              { name: 'anchor', value: new Date().toISOString() },
+              { name: 'Content-Type', value: getContentType(file.relativePath) },
+            ],
+          },
+        };
+        // Add paidBy option if sponsor wallet address is provided
+        if (sponsorWalletAddress) {
+          uploadOptions.dataItemOpts.paidBy = sponsorWalletAddress;
+          console.log(`\n${colors.fg.blue}Using sponsor wallet address ${sponsorWalletAddress} for shared credits${colors.reset}`);
         }
-        // Update manifest with uploaded files
-        for (const [relativePath, data] of Object.entries(uploadedFiles)) {
-          manifest.files[relativePath] = {
-            txId: data.id,
-            hash: data.hash,
-            lastModified: data.lastModified,
-          };
-        }
-        // Upload manifest
-        const manifestBuffer = Buffer.from(JSON.stringify(manifestData, null, 2));
-        const manifestStreamFactory = () => Readable.from(manifestBuffer);
-        const manifestSizeFactory = () => manifestBuffer.length;
-        try {
-          showProgress(`Uploading manifest`, uploadProgress);
-          const additionalTags = [
-            { name: 'GIT-HASH', value: getCommitHash() || '' }
-          ];
-          manifestId = await sharedUploadManifest(
-            DEPLOY_KEY || fs.readFileSync(walletPathToUse, 'utf-8'),
-            manifestData,
-            'public',
-            network,
-            (message, progress) => showProgress(message, uploadProgress + (progress * progressIncrement)),
-            additionalTags
-          );
-          manifest.lastManifestId = manifestId;
-          saveManifest(manifestPath, manifest);
-          showProgress('', 1.0);
-        } catch (error) {
-          console.error(`${colors.fg.red}✗ Failed to upload manifest: ${error.message}${colors.reset}`);
-          throw error;
-        }
+        const uploadResult = await turbo.uploadFile(uploadOptions);
+        uploadedFiles[file.relativePath] = {
+          id: uploadResult.id,
+          hash: file.hash,
+          lastModified: fs.statSync(file.fullPath).mtime.toISOString(),
+        };
+        manifestData.paths[file.relativePath] = { id: uploadResult.id };
+        uploadProgress += progressIncrement;
+        showProgress('', uploadProgress);
       } catch (error) {
-        // Fallback to sponsor pool on insufficient balance
-        if (error.message.toLowerCase().includes('insufficient balance')) {
-          console.log(`${colors.fg.yellow}Insufficient balance detected. Falling back to sponsor server deployment.${colors.reset}`);
-          useSponsorPool = true;
-        } else {
-          throw error;
-        }
+        console.error(`\n${colors.fg.red}✗ Failed to upload ${file.relativePath}: ${error.message}${colors.reset}`);
+        throw error;
       }
     }
-    // Use sponsor pool for deployment
-    if (useSponsorPool) {
-      console.log(`${colors.fg.blue}Using sponsor server for deployment${colors.reset}`);
-      const sponsorResult = await deployWithSponsor(
-        deployFolder,
-        sponsorServerUrl,
-        manifest,
-        filesToUpload,
-        showProgress,
-        walletPathToUse || DEPLOY_KEY,
-        network,
-        eventPoolId
-      );
-      manifestId = sponsorResult.manifestId;
-      manifest.lastManifestId = manifestId;
-      Object.assign(manifest.files, sponsorResult.manifest.files);
-      saveManifest(manifestPath, manifest);
-      console.log(`${colors.fg.yellow}${sponsorResult.poolName}${colors.reset}`);
-      if (sponsorResult.poolType === 'event') {
-        console.log(`${colors.fg.cyan}● Total Credits Spent: ${Number(sponsorResult.totalCreditsSpent) / 1e12} Turbo Credits${colors.reset}`);
-        console.log(`${colors.fg.cyan}● Usage for this Wallet: ${sponsorResult.usage} Turbo Credits${colors.reset}`);
-        console.log(`${colors.fg.cyan}● Remaining Allowance: ${sponsorResult.remainingAllowance} Turbo Credits${colors.reset}`);
+    // Update manifest with uploaded files
+    for (const [relativePath, data] of Object.entries(uploadedFiles)) {
+      manifest.files[relativePath] = {
+        txId: data.id,
+        hash: data.hash,
+        lastModified: data.lastModified,
+      };
+    }
+    // Upload manifest
+    const manifestBuffer = Buffer.from(JSON.stringify(manifestData, null, 2));
+    const manifestStreamFactory = () => Readable.from(manifestBuffer);
+    const manifestSizeFactory = () => manifestBuffer.length;
+    try {
+      showProgress(`Uploading manifest`, uploadProgress);
+      const additionalTags = [
+        { name: 'GIT-HASH', value: getCommitHash() || '' }
+      ];
+      const manifestUploadOptions = {
+        fileStreamFactory: manifestStreamFactory,
+        fileSizeFactory: manifestSizeFactory,
+        dataItemOpts: {
+          tags: [
+            { name: 'App-Name', value: 'PermaDeploy' },
+            { name: 'anchor', value: new Date().toISOString() },
+            { name: 'Content-Type', value: 'application/json' },
+            ...additionalTags,
+          ],
+        },
+      };
+      // Add paidBy option for manifest if sponsor wallet address is provided
+      if (sponsorWalletAddress) {
+        manifestUploadOptions.dataItemOpts.paidBy = sponsorWalletAddress;
+        console.log(`\n${colors.fg.blue}Using sponsor wallet address ${sponsorWalletAddress} for manifest upload${colors.reset}`);
       }
+      manifestId = await sharedUploadManifest(
+        DEPLOY_KEY || fs.readFileSync(walletPathToUse, 'utf-8'),
+        manifestData,
+        'public',
+        network,
+        (message, progress) => showProgress(message, uploadProgress + (progress * progressIncrement)),
+        manifestUploadOptions.dataItemOpts.tags
+      );
+      manifest.lastManifestId = manifestId;
+      saveManifest(manifestPath, manifest);
+      showProgress('', 1.0);
+    } catch (error) {
+      console.error(`${colors.fg.red}✗ Failed to upload manifest: ${error.message}${colors.reset}`);
+      throw error;
     }
     // Update ANT record if configured
     if (antProcess && (arnsName || undername !== '@') && signer) {
@@ -513,7 +499,9 @@ async function main() {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       try {
-        await ant.setUndernameRecord(
+        await antან
+
+t.setUndernameRecord(
           {
             undername: undername,
             transactionId: manifestId,
@@ -545,7 +533,6 @@ async function main() {
     // Display deployment results
     console.log(`\n${colors.bright}${colors.fg.green}╔════ DEPLOYMENT SUCCESSFUL! ════╗${colors.reset}`);
     console.log(`${colors.fg.white}View your deployment at:${colors.reset}`);
-    console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.ar.io/${manifestId} ${colors.reset}`);
     console.log(`${colors.bg.blue}${colors.fg.white} https://arweave.net/${manifestId} ${colors.reset}`);
     if (antProcess && arnsName) {
       if (undername === '@' || !undername) {

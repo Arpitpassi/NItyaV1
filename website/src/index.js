@@ -3,9 +3,9 @@ let generatedDeployCommand = '';
 // Assume arnsData is globally available from index.js
 // If not, you may need to import or share it (see Notes below)
 
-function toggleEventPoolFields() {
-  const useEventPool = document.getElementById('useEventPool').checked;
-  document.getElementById('eventPoolFields').style.display = useEventPool ? 'block' : 'none';
+function toggleSponsorWalletFields() {
+  const useSponsorWallet = document.getElementById('useSponsorWallet').checked;
+  document.getElementById('sponsorWalletFields').style.display = useSponsorWallet ? 'block' : 'none';
 }
 
 async function generateCommand() {
@@ -20,8 +20,8 @@ async function generateCommand() {
     const arnsSelect = document.getElementById('arnsNames');
     const selectedProcessId = arnsSelect.value;
     const undername = document.getElementById('undername').value || '';
-    const useEventPool = document.getElementById('useEventPool').checked;
-    const eventPoolId = useEventPool ? document.getElementById('eventPoolId').value : '';
+    const useSponsorWallet = document.getElementById('useSponsorWallet').checked;
+    const sponsorWalletAddress = useSponsorWallet ? document.getElementById('sponsorWalletAddress').value : '';
 
     // Find the ARNS name for the selected processId
     const selectedArns = arnsData.find(item => item.processId === selectedProcessId);
@@ -41,7 +41,7 @@ async function generateCommand() {
     if (arnsName) initCommand += ` --arns "${arnsName}"`;
     if (undername) initCommand += ` --undername "${undername}"`;
     if (autoDeploy) initCommand += ` --auto-deploy`;
-    if (useEventPool && eventPoolId) initCommand += ` --event-pool-id "${eventPoolId}"`;
+    if (useSponsorWallet && sponsorWalletAddress) initCommand += ` --sponsor-wallet-address "${sponsorWalletAddress}"`;
 
     let initializationCommand = `# Step 1: Initialize your project\n${initCommand}`;
     let deploymentCommand = `# Deploy your project\nnpm run build-and-deploy`;
@@ -164,29 +164,29 @@ function closeWindow(windowId) {
   toggleBackgroundBlur(false);
 }
 
-function toggleEventPoolFields() {
-  const checkbox = document.getElementById('useEventPool');
-  const fields = document.getElementById('eventPoolFields');
+function toggleSponsorWalletFields() {
+  const checkbox = document.getElementById('useSponsorWallet');
+  const fields = document.getElementById('sponsorWalletFields');
   
   if (checkbox.checked) {
-    showEventPoolTerms();
+    showSponsorWalletTerms();
   } else {
     fields.style.display = 'none';
   }
 }
 
-function showEventPoolTerms() {
+function showSponsorWalletTerms() {
   document.getElementById('eventPoolTerms').style.display = 'block';
 }
 
-function acceptEventPoolTerms() {
-  document.getElementById('eventPoolFields').style.display = 'block';
+function acceptSponsorWalletTerms() {
+  document.getElementById('sponsorWalletFields').style.display = 'block';
   closeWindow('eventPoolTerms');
-  document.getElementById('useEventPool').checked = true;
+  document.getElementById('useSponsorWallet').checked = true;
 }
 
-function declineEventPoolTerms() {
-  document.getElementById('useEventPool').checked = false;
-  document.getElementById('eventPoolFields').style.display = 'none';
+function declineSponsorWalletTerms() {
+  document.getElementById('useSponsorWallet').checked = false;
+  document.getElementById('sponsorWalletFields').style.display = 'none';
   closeWindow('eventPoolTerms');
 }
