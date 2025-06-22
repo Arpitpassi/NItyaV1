@@ -499,9 +499,7 @@ const [relativePath, data] of Object.entries(normalizedManifestFiles)) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       try {
-        await antან
-
-t.setUndernameRecord(
+        await ant.setUndernameRecord(
           {
             undername: undername,
             transactionId: manifestId,
