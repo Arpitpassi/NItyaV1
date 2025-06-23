@@ -1,221 +1,248 @@
-# NITYA - Arweave Deployment Protocol
+```markdown
+# 🎨 NityaV1 🚀 - Permanent Web Deployment Made Easy 
 
-NITYA is a tool for permanently deploying web applications and onboarding users to the decentralized Arweave network. This README provides step-by-step instructions to set up and deploy your project using NITYA, including details on pool-based deployments for larger files.
+<br>
 
-Find Nitya website at https://nitya_enginesoup.ar.io/
-
-## Prerequisites
-
-- **Node.js and npm**: Ensure Node.js (v14 or higher) and npm are installed.
-- **Git**: Required for version control and automatic deployment setup. (Files up to 100KB can skip this step)
-- **Arweave Wallet**: Install the Wander wallet extension for Arweave or prepare an Ethereum/Polygon private key.
-
-## Installation
-
-1. **Install perma-deploy**: Run the following command in your project directory to install the NITYA deployment tool:
-
-   ```bash
-   npm install nitya@1.1.4
-   ```
-
-## Step-by-Step Setup and Deployment
-
-### Step 1: Connect Your Wallet
-
-1. **Access the NITYA Interface**:
-
-   - Open the NITYA web interface (provided URL or hosted deployment).
-   - Click **Connect Wallet** and approve the connection in your Wander wallet (for Arweave) or ensure your Ethereum/Polygon wallet is ready.
-
-2. **Verify Connection**:
-
-   - Once connected, the interface will display "Wallet Connected" and list any ARNS (Arweave Name System) processes associated with your wallet.
-
-### Step 2: Configure Your Project
-
-1. **Open Configuration Form**:
-
-   - Click **Generate Command** in the NITYA interface to open the configuration form.
-
-2. **Fill in Project Details**:
-
-   - **Project Name**: Optional, defaults to the current directory name.
-   - **Branch**: Specify the branch to deploy (e.g., `main`).
-   - **Install Command**: Specify the command to install dependencies (e.g., `npm install`).
-   - **Build Command**: Specify the build command (e.g., `npm run build`).
-   - **Deploy Folder**: Specify the output folder (e.g., `dist`).
-   - **Wallet Type**: Select `arweave` (more options coming soon).
-   - **Auto Deploy**: Check to enable automatic deployment on git commits.
-   - **ANT Process**: Select an ANT process ID from your wallet (if applicable).
-   - **ARNS Name**: Optional, specify an ARNS name (e.g., `myapp`).
-   - **Undername**: Optional, specify an ARNS undername (e.g., `dev`).
-
-3. **Generate Initialization Command**:
-
-   - Click **Generate** to create the initialization command.
-   - Copy the command displayed in the "Initialization Command" section.
-
-### Step 3: Initialize Your Project
-
-1. **Run Initialization Command**:
-
-   - In your project directory, paste and run the copied initialization command (e.g., `npx perma-init --project-name "my-project" ...`).
-   - This creates a `.perma-deploy` directory with a `config.json` file and, for Arweave wallets, generates a wallet file in `~/.permaweb/<project-name>/wallet.json`.
-
-2. **Copy Project Wallet Address**:
-
-   - If using an Arweave wallet, the interface or terminal will display the generated wallet address. Copy it for the next steps.
-   - For Ethereum/Polygon, note that you'll need to set the `DEPLOY_KEY` environment variable later.
-
-### Step 4: Fund and Grant Controller Access
-
-1. **Paste Project Wallet Address**:
-
-   - In the NITYA interface, under "Wallet Operations," paste the project wallet address and click **Set Project Wallet**.
-
-2. **Top Up Project Wallet** (for files &gt;100KB with direct upload):
-
-   - Click **Top Up Project Wallet** to transfer 0.1 AR from your connected wallet to the project wallet. This is required for direct uploads of folders larger than 100KB.
-   - Confirm the transaction in your Wander wallet.
-
-3. **Grant Controller Access** (if using ARNS):
-
-   - Select an ANT process from the dropdown (if not already selected).
-   - Click **Grant Controller Access** to allow the project wallet to manage the selected ARNS name.
-   - Confirm the transaction in your Wander wallet.
-
-### Step 5: Deploy Your Project
-
-1. **Copy Deploy Command**:
-
-   - In the NITYA interface, navigate to the "Deploy Command" section (accessible after initialization).
-   - Copy the deploy command (e.g., `npm run build-and-deploy`).
-
-2. **Set Environment Variable (for Ethereum/Polygon)**:
-
-   - If using an Ethereum or Polygon wallet, set the `DEPLOY_KEY` environment variable:
-
-     ```bash
-     # Linux/macOS
-     export DEPLOY_KEY=your_private_key_here
-     # Windows
-     set DEPLOY_KEY=your_private_key_here
-     ```
-
-3. **Choose Deployment Method (for files &gt;100KB)**:
-
-   - If your deploy folder exceeds 100KB, you will be prompted in the terminal to choose between:
-     - **Direct Upload**: Uses your project wallet, requiring at least 0.1 AR for funding.
-     - **Sponsor Pool**: Uploads via a sponsor server, reducing the need for wallet funding. Two pool types are available:
-       - **Community Pool**: Select for general use, no additional credentials needed.
-       - **Event Pool**: Requires an event pool name and password for access.
-   - Follow the terminal prompts:
-     - Enter `y` to use a sponsor pool or `n` for direct upload.
-     - If using a sponsor pool, select `1` for community pool or `2` for event pool.
-     - For event pools, provide the pool name and password when prompted.
-
-     *PLEASE NOTE POOL ARCHITECTURE IS IN BETA ATM AND NOT OUT FOR PUBLIC USE*
-
-4. **Run Deploy Command**:
-
-   - In your project directory, run the copied deploy command:
-
-     ```bash
-     npm perma-deploy
-     ```
-
-   - **Direct Upload**: The folder is uploaded to Arweave using the project wallet, with progress displayed in the terminal.
-
-   - **Sponsor Pool**: The folder is zipped, sent to the sponsor server, and uploaded to Arweave. The terminal shows: `Zipping folder...`, `Sending to sponsor server...`, and `✓ Sponsored deployment completed` upon success.
-
-5. **View Deployment**:
-
-   - Upon successful deployment, the terminal will display URLs like:
-     - `https://arweave.ar.io/<manifestId>`
-     - `https://arweave.net/<manifestId>`
-     - If using ARNS: `https://<undername>_<arnsName>.ar.io` or `https://<arnsName>.ar.io`
-
-## Automatic Deployment (Optional)
-
-If you enabled **Auto Deploy** during initialization:
-
-- A git `post-commit` hook is created in `.git/hooks/post-commit`.
-- Every git commit on the specified branch (e.g., `main`) will automatically run `npm run build-and-deploy`, prompting for pool selection if the folder exceeds 100KB.
-
-## Pool-Based Deployments
-
-Pool-based deployments are designed for folders larger than 100KB, allowing uploads via a sponsor server to reduce wallet funding requirements. Here's how it works:
-
-- **When Triggered**: If the deploy folder exceeds 100KB, the terminal prompts: `Folder size exceeds 100KB. Do you want to use the sponsor pool for deployment? (y/n):`.
-- **Pool Selection**:
-  - Choose `y` to use a sponsor pool, then select:
-    - `1` for **Community Pool** (no credentials needed).
-    - `2` for **Event Pool** (requires pool name and password).
-  - Community pools are simpler, while event pools are for specific events with restricted access.
-- **Process**:
-  - The deploy folder is zipped into `deploy.zip`.
-  - The zip file, pool type, and (for event pools) credentials are sent to the sponsor server (`http://localhost:3000/upload`) with an API key (`deploy-api-key-123`).
-  - The server handles the Arweave upload and returns a `manifestId`.
-  - The temporary zip file is deleted.
-- **Requirements**:
-  - A sponsor wallet must be configured at `~/.nitya/sponsor/config.json` (set up via `nitya-setup`).
-  - The sponsor server must be running and accessible.
-- **Benefits**: Reduces the need for AR funding in the project wallet, making large deployments more accessible.
-- **Limitations**:
-  - Requires a running sponsor server (default: localhost).
-  - Event pool deployments need valid credentials, validated by the server.
-  - No real-time upload progress feedback for sponsor pool uploads.
-
-## Troubleshooting
-
-- **Wallet Connection Issues**:
-
-  - Ensure the Wander wallet is installed and unlocked.
-  - Refresh the NITYA interface if SDKs fail to load.
-
-- **Deployment Fails**:
-
-  - Verify the project wallet has sufficient AR (0.1 AR for &gt;100KB direct uploads).
-  - Check the build command and deploy folder paths in `.perma-deploy/config.json`.
-  - For sponsor pool errors, ensure the sponsor wallet is configured in `~/.nitya/sponsor/config.json` and the server is running.
-
-- **Sponsor Pool Issues**:
-
-  - Run `nitya-setup` to configure the sponsor wallet if not set up.
-  - Verify the sponsor server is accessible at `http://localhost:3000/upload`.
-  - For event pools, ensure the pool name and password are correct.
-  - Check server logs for errors if the upload fails.
-
-## Additional Notes
-
-- **Wallet Funding**: For Arweave wallets, fund the project wallet with AR or Turbo credits via the NITYA interface or manually. Sponsor pools minimize this need for large files.
-- **Sponsor Pools**: Community pools are ideal for general use, while event pools are suited for specific, credential-protected deployments.
-- **Configuration Storage**: The `.perma-deploy/config.json` file stores your project settings. Do not commit sensitive data (e.g., wallet files) to version control.
-- **Support**: Refer to the "Need Help? Setup Guide" in the NITYA interface for visual instructions.
-
-## Example Commands
-
-```bash
-# Initialize project
-npx perma-init --project-name "my-project" --build "npm run build" --branch "main" --deploy-folder "dist" --auto-deploy
-
-<<<<<<< HEAD
-This project is licensed under the GNU Affero General Public License v3.0
-
-## Acknowledgements
-
-- Built with Arweave and AR.IO.
-- Uses @ardrive/turbo-sdk for uploads and @ar.io/sdk for ARNS management.
-- Inspired by the need for simple permaweb deployment tools.
-
-
-
- The link to curl -s https://raw.githubusercontent.com/Arpitpassi/permadeploysetupsh/main/perma.sh | bash
-=======
-# Deploy project
-npm perma-deploy
 ```
->>>>>>> refs/remotes/origin/main
+                                  _.--""--._
+                                .'          `.
+                               /   O      O   \
+                              |    \  ^^  /    |
+                              \     `----'     /
+                               `. _______ .'
+                                  //_____\\
+                                 (( ____ ))
+                                  `-----'
+```
+
+**Tagline:**  Effortlessly deploy your web apps to the Arweave permaweb.
+
+<br>
+
+[![NPM](https://img.shields.io/npm/v/nitya?style=for-the-badge)](https://www.npmjs.com/package/nitya)
+[![GitHub license](https://img.shields.io/github/license/Arpitpassi/NityaV1?style=for-the-badge)](https://github.com/Arpitpassi/NityaV1/blob/main/LICENSE)
+[![JavaScript](https://img.shields.io/badge/javascript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://www.javascript.com/)
+[![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![AWS](https://img.shields.io/badge/Amazon%20Web%20Services-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/)
 
 
- 
+<br>
+
+---
+
+## 🌟 Feature Highlights ✨
+
+*   **Seamless Wallet Integration:** Connect your Arweave (Wander) or Ethereum/Polygon wallet for easy deployment.
+*   **Simplified Deployment Process:**  Deploy your application with intuitive commands.
+*   **Automatic Deployment (Optional):** Set up automatic deployments on every git commit.
+*   **Pool-Based Deployments (for large files):** Leverage sponsor pools to deploy large projects efficiently.  Minimizes AR funding requirements.
+*   **ARNS Support:** Deploy to your own custom ARNS domain.
+*   **Cross-Platform Compatibility:** Works seamlessly across various operating systems.
+*   **Detailed Documentation and Support:** Comprehensive guides and resources available.
+
+<br>
+
+---
+
+## 🛠️ Tech Stack 📦
+
+| Technology     | Badge                                                                  |
+|-----------------|-----------------------------------------------------------------------|
+| Node.js        | [![Node.js](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/) |
+| Express.js     | [![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/) |
+| Redis          | [![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/) |
+| Arweave        | [![Arweave](https://img.shields.io/badge/Arweave-%2300a676.svg?style=for-the-badge&logo=arweave&logoColor=white)](https://www.arweave.org/) |
+| AWS            | [![AWS](https://img.shields.io/badge/Amazon%20Web%20Services-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/) |
+| Other Libraries |  [![Other Libraries](https://img.shields.io/badge/Other%20Libraries-Various-blue?style=for-the-badge)](https://github.com/Arpitpassi/NityaV1/blob/main/package.json) |
+
+
+<br>
+
+---
+
+## 🚀 Quick Start Guide ⚡
+
+1.  **Installation:**
+
+    ```bash
+    npm install nitya@1.1.4
+    ```
+
+2.  **Initialization:**
+
+    ```bash
+    npx nitya init --project-name "my-project"  --build "npm run build" --deploy-folder "dist"
+    ```
+
+3.  **Deployment:**
+
+    ```bash
+    npm run build-and-deploy
+    ```
+
+<br>
+
+---
+
+## 📖 Detailed Usage 📚
+
+**(See detailed steps in the `Step-by-Step Setup and Deployment` section below)**
+
+<br>
+
+---
+
+## 🏗️ Project Structure 📁
+
+```
+NityaV1/
+├── bin/
+│   ├── nitya.js
+│   ├── perma-deploy.js
+│   ├── perma-init.js
+│   └── perma-begin.cjs
+├── website/
+│   └── src/
+│       └── index.js
+└── package.json
+```
+
+<br>
+
+---
+
+## 🎯 API Documentation 📖
+
+
+| Method      | Endpoint              | Description                                       | Request Body   | Response Body |
+|-------------|-----------------------|---------------------------------------------------|----------------|----------------|
+| `POST`      | `/upload`             | Uploads a zipped project folder to Arweave.       | `formData`     | `{manifestId}` |
+| `GET`       | `/status/:manifestId` | Retrieves the deployment status.                  |                | `{status}`     |
+| `GET`      | `/arns`                | Retrieves available ARNS processes.                 |                | `[{processId, name}]`|
+
+
+**Example using `axios`:**
+
+```javascript
+const axios = require('axios');
+
+axios.post('/upload', formData, {
+  headers: {
+    'Content-Type': 'multipart/form-data'
+  }
+})
+.then(response => {
+  console.log('Deployment successful:', response.data.manifestId);
+})
+.catch(error => {
+  console.error('Deployment failed:', error);
+});
+```
+
+<br>
+
+---
+
+## 🔧 Configuration Options ⚙️
+
+| Option             | Description                                         | Default Value |
+|----------------------|-----------------------------------------------------|----------------|
+| `project-name`      | Name of the project                                 | Current directory name |
+| `build`             | Build command                                       | `npm run build` |
+| `install`           | Install command                                     | `npm install`   |
+| `branch`            | Git branch to deploy                               | `main`          |
+| `deploy-folder`     | Folder containing built assets                      | `dist`          |
+| `auto-deploy`       | Enable automatic deployment on git commits           | `false`         |
+| `ant-process`       | ANT process ID (for ARNS)                           |                |
+| `arns`              | ARNS name (for ARNS)                               |                |
+| `undername`         | ARNS undername (for ARNS)                           |                |
+| `sponsor-wallet-address` | Sponsor wallet address (for pool deployments)     |                |
+
+
+<br>
+
+---
+
+## 📸 Screenshots/Demo 🖼️
+
+**(Include screenshots/gifs here showcasing the NityaV1 interface and deployment process.)**
+
+
+<br>
+
+---
+
+## 🤝 Contributing Guidelines 🤝
+
+1.  **Fork the repository.**
+2.  **Create a new branch.**
+3.  **Make your changes.**
+4.  **Test your changes thoroughly.**
+5.  **Submit a pull request.**
+
+<br>
+
+---
+
+## 📜 License and Acknowledgments 🙏
+
+This project is licensed under the [MIT License](LICENSE).  We thank the Arweave and AR.IO communities for their support.
+
+<br>
+
+---
+
+## 👥 Contributors ✨
+
+**(Add contributor avatars and links here)**
+
+
+<br>
+
+---
+
+## 📞 Support and Contact 📧
+
+[![Twitter](https://img.shields.io/twitter/follow/Arpitpassi?style=social)](https://twitter.com/Arpitpassi)
+[![Email](https://img.shields.io/badge/Email-Contact-blue?style=flat-square)](mailto:arpitpassi@email.com)  <!-- Replace with actual email -->
+
+
+<br>
+
+---
+
+## <details><summary>Frequently Asked Questions (FAQ)</summary>
+
+**Q: What is Arweave?**
+
+A: Arweave is a decentralized storage network that allows you to permanently store data on the blockchain.
+
+**Q: How does NityaV1 work with Arweave?**
+
+A: NityaV1 simplifies the process of deploying your web application to Arweave's permanent storage, handling the technical complexities for you.
+
+**Q: Do I need to pay for using NityaV1?**
+
+A:  NityaV1 itself is free to use.  However, you will need to pay for Arweave storage fees (AR tokens) to store your application's data.  Pool deployments minimize the AR required, but you still need AR tokens for direct uploads of large projects.
+
+**Q: What if I encounter an error during deployment?**
+
+A: Please refer to the Troubleshooting section of this README or contact us for assistance.
+
+</details>
+
+<br>
+
+---
+
+## Roadmap 🗺️
+
+- [ ]  Implement support for more wallet types.
+- [ ]  Add more advanced deployment options.
+- [ ]  Improve error handling and logging.
+- [ ]  Expand documentation and tutorials.
+- [x] Initial Release
+
+
+```
